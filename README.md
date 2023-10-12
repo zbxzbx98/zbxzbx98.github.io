@@ -1,5 +1,8 @@
+# 只是一个个人网站
 
-## Project Setup
+## 什么都还没有搞哦
+
+<!-- ## Project Setup
 
 ```sh
 npm install
@@ -15,4 +18,4 @@ npm run dev
 
 ```sh
 npm run build
-```
+``` -->
