@@ -1,0 +1,39 @@
+name: 'Deploy blog'
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  blog-deployment:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Asia/Shanghai
+    
+    steps:
+    - name: Checkout source
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+    
+    - name: Setup nodejs
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18.x'
+    
+    - name: Install dependencies
+      run: |
+        node -v
+        npm i
+
+    - name: Generate static files
+      run: |
+        npm run build
+    
+    - name: Deploy to gh-pages branch
+      uses: s0/git-publish-subdir-action@develop
+      env:
+        REPO: self
+        BRANCH: gh-pages
+        FOLDER: dist
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
