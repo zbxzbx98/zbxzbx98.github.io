@@ -1,7 +1,7 @@
 <template>
     <h1>你好</h1>
     <h2 style="top: 8%;">这里是开始页</h2>
-    <button style="top: 18%;" type="button" @click="this.$router.push('Home')"> 点击进入主页（未制作） </button>
+    <button style="top: 18%;" type="button" @click="$router.push('Home')"> 点击进入主页（未制作） </button>
     <!-- <button style="top: 24%;" type="button" @click="window.open('https://space.bilibili.com/385525872?spm_id_from=333.1007.0.0')"> 点击进入我的b站主页 </button> -->
     <button style="top: 24%;" type="button">
         <a href="https://space.bilibili.com/385525872?spm_id_from=333.1007.0.0" target= "_blank">点击进入我的b站主页</a>
