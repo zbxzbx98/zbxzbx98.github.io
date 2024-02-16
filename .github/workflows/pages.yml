@@ -30,6 +30,10 @@ jobs:
     - name: Generate static files
       run: |
         npm run build
+
+    - name: Ensure vue router works on github pages
+      run: |
+        cp dist/index.html dist/404.html
     
     - name: Deploy to gh-pages branch
       uses: s0/git-publish-subdir-action@develop
