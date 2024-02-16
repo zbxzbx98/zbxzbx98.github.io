@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';  
-import Effect from '../components/Effect.vue';  
-import Home from '../components/Home.vue';  
+import Effect from '../views/Effect.vue';  
+import Home from '../views/Home.vue';  
   
 const routes = [  
   { path: '/',name:"Effect", component: Effect },  
