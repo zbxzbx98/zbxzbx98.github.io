@@ -3,6 +3,8 @@
     <a href="https://space.bilibili.com/385525872?spm_id_from=333.1007.0.0" target= "_blank">
         <el-button style="display: block;margin:0 auto;" color="#626aef" plain>点击进入我的b站主页</el-button>
     </a>
+    <br>
+    <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="$router.push('Solve')">在线数独求解器</el-button>
 </template>
 <script>
 
