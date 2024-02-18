@@ -114,8 +114,9 @@
     
 </template>
 <script setup>
-    import { ref } from 'vue'
+    import { ref, onMounted } from 'vue'
     import axios from 'axios';
+    const offline = true;
     const data = ref({
           msg: "请输入数独残局后点击“求解”按钮求解",
         //   msg: "服务器未开启，无法使用此功能...",
@@ -131,9 +132,11 @@
             [0,0,0,0,0,0,0,0,0]]
         })
     const startSolve = ()=>{
+        if(offline)
+            return;
         data.value.msg="求解中，请稍后..."
         // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
-        axios.post('http://114.55.7.194:18080/solve',{msg: data.value.msg,map:data.value.map})
+        axios.post('https://zbxzbx98.asia:18080/solve',{msg: data.value.msg,map:data.value.map})
         .then((response) => {
         data.value.msg = response.data.msg;
         if(response.data.map!=null)
@@ -150,8 +153,14 @@
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0]];
+        if(offline)
+            return;
         data.value.msg="请输入数独残局后点击“求解”按钮求解";
     }
+    onMounted(()=>{
+        if(offline)
+            data.value.msg="服务器未开启，无法使用此功能...";
+        })
 </script>
 
 <style>
