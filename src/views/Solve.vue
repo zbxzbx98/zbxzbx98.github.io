@@ -117,8 +117,8 @@
     import { ref } from 'vue'
     import axios from 'axios';
     const data = ref({
-        //   msg: "请输入数独残局后点击“求解”按钮求解",
-          msg: "服务器未开启，无法使用此功能...",
+          msg: "请输入数独残局后点击“求解”按钮求解",
+        //   msg: "服务器未开启，无法使用此功能...",
           map:[
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0],
@@ -130,27 +130,28 @@
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0]]
         })
-    // const startSolve = ()=>{
-    //     // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
-    //     axios.post('http://localhost:8080/solve',{msg: data.value.msg,map:data.value.map})
-    //     .then((response) => {
-    //     data.value.msg = response.data.msg;
-    //     if(response.data.map!=null)
-    //         data.value.map = response.data.map;
-    // });}
-    // const reset = ()=>{
-    //     data.value.map=[
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0],
-    //         [0,0,0,0,0,0,0,0,0]];
-    //     data.value.msg="请输入数独残局后点击“求解”按钮求解";
-    // }
+    const startSolve = ()=>{
+        data.value.msg="求解中，请稍后..."
+        // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
+        axios.post('http://114.55.7.194:18080/solve',{msg: data.value.msg,map:data.value.map})
+        .then((response) => {
+        data.value.msg = response.data.msg;
+        if(response.data.map!=null)
+            data.value.map = response.data.map;
+    });}
+    const reset = ()=>{
+        data.value.map=[
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0],
+            [0,0,0,0,0,0,0,0,0]];
+        data.value.msg="请输入数独残局后点击“求解”按钮求解";
+    }
 </script>
 
 <style>
