@@ -1,6 +1,9 @@
 <template >
     <div style="text-align: center;">
         <h1>数独求解</h1>
+        
+        <div>{{data.msg}}</div>
+        <br>
         <table border="1">
             <tr>
                 <td><el-input-number :min=0 :max=9 :controls=false style="width: 40px;height: 100%;" v-model="data.map[0][0]"/></td>
@@ -103,19 +106,19 @@
             </tr>
         </table>
         <br>
-        <div>{{data.msg}}</div>
-        <br>
         <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="startSolve()">求解</el-button>
         <br>
         <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="reset()">清空</el-button>
         <br>
         <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="$router.push('Home')">返回主页</el-button>
     </div>
-    
+    <div id="flort"></div>
 </template>
 <script setup>
     import { ref, onMounted } from 'vue'
+    import { ElNotification } from 'element-plus'
     import axios from 'axios';
+    const solver = new SolveData();
     const offline = true;
     const data = ref({
           msg: "请输入数独残局后点击“求解”按钮求解",
@@ -132,16 +135,28 @@
             [0,0,0,0,0,0,0,0,0]]
         })
     const startSolve = ()=>{
-        if(offline)
-            return;
-        data.value.msg="求解中，请稍后..."
-        // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
-        axios.post('https://zbxzbx98.asia:18080/solve',{msg: data.value.msg,map:data.value.map})
-        .then((response) => {
-        data.value.msg = response.data.msg;
-        if(response.data.map!=null)
-            data.value.map = response.data.map;
-    });}
+        if(offline){
+            var t = solver.solve(data.value.map)
+            if(t==null){
+                data.value.msg="无解！"
+            }
+            else{
+                data.value.msg="其中一种解为"
+                data.value.map = t
+            }
+        }
+        else{
+            data.value.msg="求解中，请稍后..."
+            // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
+            axios.post('https://zbxzbx98.asia:18080/solve',{msg: data.value.msg,map:data.value.map})
+            .then((response) => {
+            data.value.msg = response.data.msg;
+            if(response.data.map!=null)
+                data.value.map = response.data.map;
+            });
+        }
+    }
+
     const reset = ()=>{
         data.value.map=[
             [0,0,0,0,0,0,0,0,0],
@@ -153,14 +168,126 @@
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0],
             [0,0,0,0,0,0,0,0,0]];
-        if(offline)
-            return;
+        // if(offline)
+        //     return;
         data.value.msg="请输入数独残局后点击“求解”按钮求解";
     }
     onMounted(()=>{
         if(offline)
-            data.value.msg="服务器未开启，无法使用此功能...";
+            ElNotification({
+                title: '离线模式',
+                message: "当前服务器为关闭状态，使用的数独求解功能将在本地运行！",
+                position: 'bottom-right',
+                type: 'warning',
+                duration: 0,
+            })
         })
+
+</script>
+
+<script>
+class SolveData {
+    constructor() {
+        this.map = null;
+        this.can = new Array(9).fill(null).map(() => new Array(9).fill(null).map(() => new Array(9).fill(0)));
+    }
+
+    solve(now) {
+        this.map = now;
+        for (let i = 0; i < 9; i++) {
+            for (let j = 0; j < 9; j++) {
+                const check = this.newCheckArray();
+                this.checkLine(i, check);
+                this.checkRow(j, check);
+                this.checkBlock(i, j, check);
+                this.can[i][j] = check;
+                for (let k = 0; k < 9; k++) {
+                    if (check[k] > 3)
+                        return null;
+                }
+            }
+        }
+        const ans = this.find(0);
+        return ans ? this.map : null;
+    }
+
+    find(num) {
+        if (num > 80) {
+            return true;
+        }
+        let end = false;
+        const line = Math.floor(num / 9);
+        const row = num % 9;
+        if (this.map[line][row] > 0) {
+            end = this.find(num + 1);
+        } else {
+            for (let i = 0; i < 9; i++) {
+                if (this.can[line][row][i] === 0) {
+                    if (this.change(line, row, i, 1)) {
+                        this.map[line][row] = i + 1;
+                        end = this.find(num + 1);
+                        if (end)
+                            return true;
+                        this.map[line][row] = 0;
+                    }
+                    this.change(line, row, i, -1);
+                }
+            }
+        }
+        return end;
+    }
+
+    newCheckArray() {
+        return [0, 0, 0, 0, 0, 0, 0, 0, 0];
+    }
+
+    checkLine(line, n) {
+        for (let i = 0; i < 9; i++) {
+            if (this.map[line][i] > 0)
+                n[this.map[line][i] - 1]++;
+        }
+    }
+
+    checkRow(row, n) {
+        for (let i = 0; i < 9; i++) {
+            if (this.map[i][row] > 0)
+                n[this.map[i][row] - 1]++;
+        }
+    }
+
+    checkBlock(line, row, n) {
+        const x = Math.floor(line / 3);
+        const y = Math.floor(row / 3);
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                if (this.map[3 * x + i][3 * y + j] > 0)
+                    n[this.map[3 * x + i][3 * y + j] - 1]++;
+            }
+        }
+    }
+
+    change(line, row, num, changeNum) {
+        let find = true;
+        for (let i = 0; i < 9; i++) {
+            this.can[line][i][num] += changeNum;
+            if (this.can[line][i][num] > 3)
+                find = false;
+            this.can[i][row][num] += changeNum;
+            if (this.can[i][row][num] > 3)
+                find = false;
+        }
+        const x = Math.floor(line / 3);
+        const y = Math.floor(row / 3);
+        for (let i = 0; i < 3; i++) {
+            for (let j = 0; j < 3; j++) {
+                this.can[3 * x + i][3 * y + j][num] += changeNum;
+                if (this.can[3 * x + i][3 * y + j][num] > 3)
+                    find = false;
+            }
+        }
+        return find;
+    }
+}
 </script>
 
 <style>
