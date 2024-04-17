@@ -1,5 +1,5 @@
 <template >
-    <div style="text-align: center;">
+    <div class="backgr" ref="vantaRef" style="text-align: center;">
         <h1>数独求解</h1>
         
         <div>{{data.msg}}</div>
@@ -106,83 +106,107 @@
             </tr>
         </table>
         <br>
-        <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="startSolve()">求解</el-button>
+        <el-button style="display: block;margin:0 auto;" color="#1fa2ff" plain @click="startSolve()">求解</el-button>
         <br>
-        <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="reset()">清空</el-button>
+        <el-button style="display: block;margin:0 auto;" color="#1fa2ff" plain @click="reset()">清空</el-button>
         <br>
-        <el-button style="display: block;margin:0 auto;" color="#626aef" plain @click="$router.push('Home')">返回主页</el-button>
+        <el-button style="display: block;margin:0 auto;" color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
     </div>
     <div id="flort"></div>
 </template>
 <script setup>
-    import { ref, onMounted } from 'vue'
-    import { ElNotification } from 'element-plus'
-    import axios from 'axios';
-    const solver = new SolveData();
-    const offline = true;
-    const data = ref({
-          msg: "请输入数独残局后点击“求解”按钮求解",
-        //   msg: "服务器未开启，无法使用此功能...",
-          map:[
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0]]
-        })
-    const startSolve = ()=>{
-        if(offline){
-            var t = solver.solve(data.value.map)
-            if(t==null){
-                data.value.msg="无解！"
-            }
-            else{
-                data.value.msg="其中一种解为"
-                data.value.map = t
-            }
+import { ref, onMounted, onUnmounted  } from 'vue'
+import { ElNotification } from 'element-plus'
+import axios from 'axios';
+import * as THREE from "three";
+import NET from "vanta/src/vanta.net";
+const solver = new SolveData();
+const offline = true;
+const data = ref({
+      msg: "请输入数独残局后点击“求解”按钮求解",
+    //   msg: "服务器未开启，无法使用此功能...",
+      map:[
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0]]
+    })
+const startSolve = ()=>{
+    if(offline){
+        var t = solver.solve(data.value.map)
+        if(t==null){
+            data.value.msg="无解！"
         }
         else{
-            data.value.msg="求解中，请稍后..."
-            // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
-            axios.post('https://zbxzbx98.asia:18080/solve',{msg: data.value.msg,map:data.value.map})
-            .then((response) => {
-            data.value.msg = response.data.msg;
-            if(response.data.map!=null)
-                data.value.map = response.data.map;
-            });
+            data.value.msg="其中一种解为"
+            data.value.map = t
         }
     }
-
-    const reset = ()=>{
-        data.value.map=[
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0],
-            [0,0,0,0,0,0,0,0,0]];
-        // if(offline)
-        //     return;
-        data.value.msg="请输入数独残局后点击“求解”按钮求解";
+    else{
+        data.value.msg="求解中，请稍后..."
+        // axios.get("http://localhost:8080/hello").then(response => (console.log(response.data)))
+        axios.post('https://zbxzbx98.asia:18080/solve',{msg: data.value.msg,map:data.value.map})
+        .then((response) => {
+        data.value.msg = response.data.msg;
+        if(response.data.map!=null)
+            data.value.map = response.data.map;
+        });
     }
-    onMounted(()=>{
-        if(offline)
-            ElNotification({
-                title: '离线模式',
-                message: "当前服务器为关闭状态，使用的数独求解功能将在本地运行！",
-                position: 'bottom-right',
-                type: 'warning',
-                duration: 0,
-            })
+}
+const reset = ()=>{
+    data.value.map=[
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,0]];
+    // if(offline)
+    //     return;
+    data.value.msg="请输入数独残局后点击“求解”按钮求解";
+}
+const vantaRef = ref();
+let vantaEffect;
+onMounted(()=>{
+    if(offline){
+        ElNotification({
+            title: '离线模式',
+            message: "当前服务器为关闭状态，使用的数独求解功能将在本地运行！",
+            position: 'bottom-right',
+            type: 'warning',
+            duration: 0,
         })
-
+    }
+    vantaEffect = NET({
+        el: vantaRef.value,
+        THREE: THREE,
+        mouseControls: true,
+        touchControls: true,
+        gyroControls: false,
+        minHeight: 200.0,
+        minWidth: 200.0,
+        scale: 1.0,
+        scaleMobile: 1.0,
+        color: 0xc7d1e8,
+        backgroundColor: 0xffffff,
+        points: 13.0,
+        maxDistance: 21.0,
+        spacing: 16.0
+    });
+});
+onUnmounted(() => {
+  if (vantaEffect) {
+    vantaEffect.destroy();
+  }
+});
 </script>
 
 <script>
@@ -295,9 +319,7 @@ class SolveData {
     padding: 0;
     margin: 0;
 } */
-:root, body {
-    background: #FFF;
-}
+
 
 h1{
     text-align: center;
