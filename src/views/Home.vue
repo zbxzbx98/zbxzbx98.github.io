@@ -7,6 +7,8 @@
             </a>
             <br><br>
             <el-button color="#1fa2ff" plain @click="$router.push('Solve')">在线数独求解器</el-button>
+            <br><br>
+            <el-button color="#1fa2ff" plain @click="$router.push('NikkeCalc')">NIKKE前哨基地计算器</el-button>
         </div>
 
         <h2 class="homeh">代表作</h2>
