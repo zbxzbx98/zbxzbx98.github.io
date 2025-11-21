@@ -375,9 +375,9 @@ function updateTableData() {
 async function loadData() {
   try {
     // 加载章节数据
-    const chaptersResponse = await fetch('/src/json/chapters.json')
+    const chaptersResponse = await fetch('/json/chapters.json')
     const chaptersJson = await chaptersResponse.json()
-
+    
     // 转换章节数据格式
     if (chaptersJson.Chapters) {
       chaptersData.value = []
@@ -391,11 +391,11 @@ async function loadData() {
         })
       })
     }
-
+    
     // 加载前哨基地数据
-    const outpostResponse = await fetch('/src/json/outpost.json')
+    const outpostResponse = await fetch('/json/outpost.json')
     const outpostJson = await outpostResponse.json()
-
+    
     // 转换前哨基地数据格式
     if (outpostJson.outpost) {
       outpostData.value = {}
