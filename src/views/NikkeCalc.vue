@@ -761,4 +761,12 @@ onUnmounted(() => {
     grid-template-columns: 1fr;
   }
 }
+
+:deep(.vanta-canvas) {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
 </style>
