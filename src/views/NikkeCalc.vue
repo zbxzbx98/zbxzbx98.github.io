@@ -12,24 +12,32 @@
           <div class="select-container">
             <div class="select-group">
               <label class="select-label" data-i18n="easyMode">普通模式</label>
-              <el-select v-model="selectedEasyMode" placeholder="请选择普通模式关卡" style="width: 200px;"
-                @change="calculateBaseDefenseLevel">
-                <el-option-group v-for="(group, groupName) in easyModeGroups" :key="groupName" :label="groupName">
-                  <el-option v-for="item in group" :key="item.id" :label="item.section" :value="item.id">
-                  </el-option>
-                </el-option-group>
-              </el-select>
+              <div class="cascader-wrapper">
+                <el-cascader
+                  v-model="selectedEasyMode"
+                  :options="easyModeOptions"
+                  :props="cascaderProps"
+                  placeholder="请选择普通模式关卡"
+                  style="width: 200px;"
+                  @change="handleEasyModeChange"
+                  clearable
+                />
+              </div>
             </div>
 
             <div class="select-group">
               <label class="select-label" data-i18n="hardMode">困难模式</label>
-              <el-select v-model="selectedHardMode" placeholder="请选择困难模式关卡" style="width: 200px;"
-                @change="calculateBaseDefenseLevel">
-                <el-option-group v-for="(group, groupName) in hardModeGroups" :key="groupName" :label="groupName">
-                  <el-option v-for="item in group" :key="item.id" :label="item.section" :value="item.id">
-                  </el-option>
-                </el-option-group>
-              </el-select>
+              <div class="cascader-wrapper">
+                <el-cascader
+                  v-model="selectedHardMode"
+                  :options="hardModeOptions"
+                  :props="cascaderProps"
+                  placeholder="请选择困难模式关卡"
+                  style="width: 200px;"
+                  @change="handleHardModeChange"
+                  clearable
+                />
+              </div>
             </div>
           </div>
 
@@ -86,13 +94,17 @@
           <div class="table-controls">
             <div class="control-group">
               <label class="select-label" data-i18n="easyModeTable">普通模式</label>
-              <el-select v-model="selectedEasyModeTable" placeholder="请选择普通模式关卡" style="width: 200px;"
-                @change="updateTableData">
-                <el-option-group v-for="(group, groupName) in easyModeTableGroups" :key="groupName" :label="groupName">
-                  <el-option v-for="item in group" :key="item.id" :label="item.section" :value="item.id">
-                  </el-option>
-                </el-option-group>
-              </el-select>
+              <div class="cascader-wrapper">
+                <el-cascader
+                  v-model="selectedEasyModeTable"
+                  :options="easyModeTableOptions"
+                  :props="cascaderProps"
+                  placeholder="请选择普通模式关卡"
+                  style="width: 200px;"
+                  @change="handleEasyModeTableChange"
+                  clearable
+                />
+              </div>
             </div>
             <div class="control-group">
               <label for="displayMode" data-i18n="displayOrder">显示顺序:</label>
@@ -170,14 +182,14 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { ElSelect, ElOption, ElOptionGroup } from 'element-plus'
+import { ElCascader } from 'element-plus'
 import * as THREE from "three";
 import NET from "vanta/src/vanta.net";
 
 // 数据引用
-const selectedEasyMode = ref('')
-const selectedHardMode = ref('')
-const selectedEasyModeTable = ref('')
+const selectedEasyMode = ref([])
+const selectedHardMode = ref([])
+const selectedEasyModeTable = ref([])
 const displayMode = ref('asc')
 const showHalfPoints = ref('true')
 const baseDefenseLevel = ref(1)
@@ -194,14 +206,90 @@ const resourceOutput = ref({
   core_dust_mul: '-'
 })
 
+// 级联选择器属性
+const cascaderProps = {
+  value: 'id',
+  label: 'label',
+  children: 'children',
+  expandTrigger: 'hover'
+}
+
 // 分组数据
 const easyModeGroups = computed(() => groupChaptersByType('easy'))
 const hardModeGroups = computed(() => groupChaptersByType('hard'))
 const easyModeTableGroups = computed(() => groupChaptersByType('easyTable'))
 
+// 级联选项
+const easyModeOptions = computed(() => generateCascaderOptions('easy'))
+const hardModeOptions = computed(() => generateCascaderOptions('hard'))
+const easyModeTableOptions = computed(() => generateCascaderOptions('easyTable'))
+
 // Vanta背景效果
 const vantaRef = ref()
 let vantaEffect
+
+// 生成级联选项
+function generateCascaderOptions(mode) {
+  const groups = mode === 'easy' ? easyModeGroups.value : 
+                 mode === 'hard' ? hardModeGroups.value : 
+                 easyModeTableGroups.value
+  const options = []
+  
+  Object.keys(groups).forEach(groupName => {
+    const group = {
+      id: groupName,
+      label: groupName,
+      children: []
+    }
+    
+    groups[groupName].forEach(item => {
+      group.children.push({
+        id: item.id,
+        label: item.section
+      })
+    })
+    
+    // 只有当子项存在时才添加组
+    if (group.children.length > 0) {
+      options.push(group)
+    }
+  })
+  
+  return options
+}
+
+// 处理普通模式变更
+function handleEasyModeChange(value) {
+  if (value && value.length === 2) {
+    // 级联选择器返回数组 [groupId, itemId]
+    selectedEasyMode.value = value[1] // 我们只需要关卡ID
+    calculateBaseDefenseLevel()
+  } else {
+    selectedEasyMode.value = []
+  }
+}
+
+// 处理困难模式变更
+function handleHardModeChange(value) {
+  if (value && value.length === 2) {
+    // 级联选择器返回数组 [groupId, itemId]
+    selectedHardMode.value = value[1] // 我们只需要关卡ID
+    calculateBaseDefenseLevel()
+  } else {
+    selectedHardMode.value = []
+  }
+}
+
+// 处理表格用普通模式变更
+function handleEasyModeTableChange(value) {
+  if (value && value.length === 2) {
+    // 级联选择器返回数组 [groupId, itemId]
+    selectedEasyModeTable.value = value[1] // 我们只需要关卡ID
+    updateTableData()
+  } else {
+    selectedEasyModeTable.value = []
+  }
+}
 
 // 分组章节数据
 function groupChaptersByType(type) {
@@ -254,8 +342,21 @@ function groupChaptersByType(type) {
 
 // 计算基地防御等级
 function calculateBaseDefenseLevel() {
-  const easyModeId = parseInt(selectedEasyMode.value) || 0
-  const hardModeId = parseInt(selectedHardMode.value) || 0
+  // 确保获取正确的值，无论是字符串还是数组形式
+  let easyModeValue = selectedEasyMode.value;
+  let hardModeValue = selectedHardMode.value;
+  
+  // 如果是数组（来自级联选择器），取最后一个元素
+  if (Array.isArray(easyModeValue)) {
+    easyModeValue = easyModeValue[easyModeValue.length - 1] || 0;
+  }
+  
+  if (Array.isArray(hardModeValue)) {
+    hardModeValue = hardModeValue[hardModeValue.length - 1] || 0;
+  }
+  
+  const easyModeId = parseInt(easyModeValue) || 0
+  const hardModeId = parseInt(hardModeValue) || 0
 
   // 找到基准ID
   const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('2-12'))
@@ -297,7 +398,16 @@ function updateResourceOutput(level) {
 
 // 更新表格数据
 function updateTableData() {
-  const easyModeTableId = parseInt(selectedEasyModeTable.value) || 0
+  // 确保获取正确的值，无论是字符串还是数组形式
+  let easyModeTableValue = selectedEasyModeTable.value;
+  
+  // 如果是数组（来自级联选择器），取最后一个元素
+  if (Array.isArray(easyModeTableValue)) {
+    easyModeTableValue = easyModeTableValue[easyModeTableValue.length - 1] || 0;
+  }
+  
+  const easyModeTableId = parseInt(easyModeTableValue) || 0
+  
   if (easyModeTableId === 0) {
     tableData.value = []
     return
@@ -416,14 +526,19 @@ async function loadData() {
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
 
     if (easyBaseEntry) {
-      selectedEasyMode.value = easyBaseEntry.id
+      // 对于级联选择器，我们需要设置完整的路径
+      selectedEasyMode.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
+      // 表格用的选择器也设置同样的默认值
+      selectedEasyModeTable.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
     }
 
     if (hardBaseEntry) {
-      selectedHardMode.value = hardBaseEntry.id
+      // 对于级联选择器，我们需要设置完整的路径
+      selectedHardMode.value = [hardBaseEntry.chapterName, hardBaseEntry.id]
     }
 
     calculateBaseDefenseLevel()
+    updateTableData()
   } catch (error) {
     console.error('数据加载失败:', error)
   }
@@ -497,6 +612,14 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.cascader-wrapper {
+  width: 200px;
+}
+
+.cascader-wrapper :deep(.el-cascader) {
+  width: 100%;
 }
 
 .select-label {
@@ -649,7 +772,7 @@ onUnmounted(() => {
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, #667eea, #764ba2)
+    background: linear-gradient(90deg, #1fa2ff, #3553ff)
 }
 
 .footer-content {
@@ -680,7 +803,7 @@ onUnmounted(() => {
     padding: 15px;
     background: #667eea0d;
     border-radius: 12px;
-    border-left: 4px solid #667eea;
+    border-left: 4px solid #1fa2ff;
     transition: all .3s ease
 }
 
@@ -696,7 +819,7 @@ onUnmounted(() => {
 }
 
 .instruction-text strong {
-    color: #667eea;
+    color: #1fa2ff;
     font-weight: 700
 }
 
@@ -726,7 +849,7 @@ onUnmounted(() => {
 
 .contact-platform {
     font-weight: 700;
-    color: #667eea;
+    color: #1fa2ff;
     font-size: 1.1em
 }
 
@@ -757,8 +880,24 @@ onUnmounted(() => {
     align-items: center;
   }
 
-  .resource-grid {
+  .table-controls .control-group {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .resource-grid,
+  .footer-content,
+  .contact-platforms,
+  .instruction-grid {
     grid-template-columns: 1fr;
+  }
+  
+  .cascader-wrapper {
+    width: 100%;
+  }
+  
+  :deep(.el-cascader) {
+    width: 100%;
   }
 }
 
