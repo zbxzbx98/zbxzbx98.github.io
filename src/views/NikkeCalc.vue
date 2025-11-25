@@ -1,7 +1,7 @@
 <template>
   <div class="backgr" ref="vantaRef">
     <div class="content-wrapper">
-      <h1>前哨基地资源产出计算器</h1>
+      <h1>国服前哨基地资源产出计算器</h1>
 
       <div style="text-align: center; margin-bottom: 20px;">
         <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
@@ -154,7 +154,7 @@
                 </div>
                 <div class="instruction-item">
                   <div class="instruction-text" data-i18n="instruction2">
-                    数值可能有 ±0.01 显示误差
+                    数值可能有 ±0.01 显示误差，且国服个人关卡进度可能有1-2关的误差
                   </div>
                 </div>
               </div>
@@ -368,7 +368,7 @@ function calculateBaseDefenseLevel() {
   const easyDiff = Math.max(0, easyModeId - easyBaseId)
   const hardDiff = Math.max(0, hardModeId - hardBaseId + 1)
 
-  const totalDiff = easyDiff + hardDiff
+  const totalDiff = easyDiff + hardDiff + 3
   const level = Math.floor(totalDiff / 5) + 1
   const progress = totalDiff % 5
 
@@ -420,7 +420,7 @@ function updateTableData() {
   const easyBaseId = easyBaseEntry ? parseInt(easyBaseEntry.id) : 0
   const hardBaseId = hardBaseEntry ? parseInt(hardBaseEntry.id) : 0
 
-  const easyDiff = Math.max(0, easyModeTableId - easyBaseId)
+  const easyDiff = Math.max(0, easyModeTableId - easyBaseId)+3
 
   const hardChapters = chaptersData.value.slice(hardBaseId - 1)
   const seenLevels = new Set()
@@ -524,12 +524,12 @@ async function loadData() {
     // 设置默认值
     const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('2-12'))
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
-
+    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('26-34'))
     if (easyBaseEntry) {
       // 对于级联选择器，我们需要设置完整的路径
       selectedEasyMode.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
       // 表格用的选择器也设置同样的默认值
-      selectedEasyModeTable.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
+      selectedEasyModeTable.value = [easyBaseEntry2.chapterName, easyBaseEntry2.id]
     }
 
     if (hardBaseEntry) {
