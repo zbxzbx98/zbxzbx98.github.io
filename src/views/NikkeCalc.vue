@@ -563,7 +563,7 @@ async function loadData() {
     // 设置默认值
     const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('2-12'))
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
-    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('26-34'))
+    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('28-40'))
     if (easyBaseEntry) {
       // 对于级联选择器，我们需要设置完整的路径
       selectedEasyMode.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
