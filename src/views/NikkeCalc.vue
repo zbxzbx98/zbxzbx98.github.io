@@ -12,7 +12,13 @@
         <div class="input-section">
           <div class="select-container">
             <div class="select-group">
-              <label class="select-label">国服等级修正</label>
+              <label class="select-label">国服等级修正<el-tooltip
+                  effect="dark"
+                  content="注：国服等级修正默认为3关，具体数值请调整当前关卡后，修改该值，使下面显示的等级进度与游戏中一致，即可继续使用其他功能。"
+                  placement="top"
+                >
+                  <el-icon style="margin-left: 5px; cursor: pointer;"><QuestionFilledIcon /></el-icon>
+                </el-tooltip></label>
               <div class="cascader-wrapper">
                 <el-select
                   v-model="selectedCnLevelCorrection"
@@ -168,14 +174,10 @@
               <div class="instruction-grid">
                 <div class="instruction-item">
                   <div class="instruction-text" data-i18n="instruction1">
-                    选择战役关卡代表已通关该关卡
+                    选择战役关卡代表已通关该关卡，数值可能有 ±0.01 显示误差，且国服个人关卡进度可能有1-2关的误差，请使用国服等级修正功能进行同步
                   </div>
                 </div>
-                <div class="instruction-item">
-                  <div class="instruction-text" data-i18n="instruction2">
-                    数值可能有 ±0.01 显示误差，且国服个人关卡进度可能有1-2关的误差
-                  </div>
-                </div>
+                
               </div>
             </div>
 
@@ -201,7 +203,8 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { ElCascader, ElSelect, ElOption } from 'element-plus'
+import { ElCascader, ElSelect, ElOption, ElTooltip, ElIcon } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import * as THREE from "three";
 import NET from "vanta/src/vanta.net";
 
@@ -225,6 +228,8 @@ const resourceOutput = ref({
   battle_data_set_mul: '-',
   core_dust_mul: '-'
 })
+
+const QuestionFilledIcon = QuestionFilled
 
 // 国服等级修正选项
 const cnLevelCorrectionOptions = [
@@ -828,7 +833,7 @@ onUnmounted(() => {
 
 .instruction-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 15px
 }
 
