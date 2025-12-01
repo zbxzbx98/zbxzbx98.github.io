@@ -8,8 +8,28 @@
       </div>
 
       <div class="container">
+        <h2 class="tit">防御前哨基地产出</h2>
         <div class="input-section">
           <div class="select-container">
+            <div class="select-group">
+              <label class="select-label">国服等级修正</label>
+              <div class="cascader-wrapper">
+                <el-select
+                  v-model="selectedCnLevelCorrection"
+                  placeholder="请选择等级修正"
+                  style="width: 200px;"
+                  @change="handleCnLevelCorrectionChange"
+                >
+                  <el-option
+                    v-for="item in cnLevelCorrectionOptions"
+                    :key="item.value"
+                    :label="item.label"
+                    :value="item.value">
+                  </el-option>
+                </el-select>
+              </div>
+            </div>
+
             <div class="select-group">
               <label class="select-label" data-i18n="easyMode">普通模式</label>
               <div class="cascader-wrapper">
@@ -21,7 +41,7 @@
                   style="width: 200px;"
                   @change="handleEasyModeChange"
                   clearable
-                />
+                ></el-cascader>
               </div>
             </div>
 
@@ -36,7 +56,7 @@
                   style="width: 200px;"
                   @change="handleHardModeChange"
                   clearable
-                />
+                ></el-cascader>
               </div>
             </div>
           </div>
@@ -55,7 +75,6 @@
             </div>
           </div>
         </div>
-        <h2 class="tit">防御前哨基地产出</h2>
         <div class="output-section">
           <h3 data-i18n="baseHourlyOutput">基础每1小时产出</h3>
           <div class="resource-grid">
@@ -182,11 +201,12 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { ElCascader } from 'element-plus'
+import { ElCascader, ElSelect, ElOption } from 'element-plus'
 import * as THREE from "three";
 import NET from "vanta/src/vanta.net";
 
 // 数据引用
+const selectedCnLevelCorrection = ref(3)
 const selectedEasyMode = ref([])
 const selectedHardMode = ref([])
 const selectedEasyModeTable = ref([])
@@ -205,6 +225,14 @@ const resourceOutput = ref({
   battle_data_set_mul: '-',
   core_dust_mul: '-'
 })
+
+// 国服等级修正选项
+const cnLevelCorrectionOptions = [
+  { value: 0, label: '0' },
+  { value: 1, label: '1' },
+  { value: 2, label: '2' },
+  { value: 3, label: '3' }
+]
 
 // 级联选择器属性
 const cascaderProps = {
@@ -291,6 +319,12 @@ function handleEasyModeTableChange(value) {
   }
 }
 
+// 处理国服等级修正变更
+function handleCnLevelCorrectionChange() {
+  calculateBaseDefenseLevel()
+  updateTableData()
+}
+
 // 分组章节数据
 function groupChaptersByType(type) {
   const groups = {}
@@ -368,7 +402,7 @@ function calculateBaseDefenseLevel() {
   const easyDiff = Math.max(0, easyModeId - easyBaseId)
   const hardDiff = Math.max(0, hardModeId - hardBaseId + 1)
 
-  const totalDiff = easyDiff + hardDiff + 3
+  const totalDiff = easyDiff + hardDiff + selectedCnLevelCorrection.value
   const level = Math.floor(totalDiff / 5) + 1
   const progress = totalDiff % 5
 
@@ -420,7 +454,7 @@ function updateTableData() {
   const easyBaseId = easyBaseEntry ? parseInt(easyBaseEntry.id) : 0
   const hardBaseId = hardBaseEntry ? parseInt(hardBaseEntry.id) : 0
 
-  const easyDiff = Math.max(0, easyModeTableId - easyBaseId)+3
+  const easyDiff = Math.max(0, easyModeTableId - easyBaseId)+selectedCnLevelCorrection.value
 
   const hardChapters = chaptersData.value.slice(hardBaseId - 1)
   const seenLevels = new Set()
@@ -597,7 +631,6 @@ onUnmounted(() => {
   background: rgba(255, 255, 255, 0.8);
   border-radius: 10px;
   padding: 20px;
-  margin-bottom: 20px;
 }
 
 .select-container {
