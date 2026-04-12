@@ -1,6 +1,6 @@
 <template>
-  <div class="backgr" ref="vantaRef">
-    <div class="content-wrapper">
+  <div class="vanta-bg" ref="vantaRef"></div>
+  <div class="content-wrapper">
       <h1>国服前哨基地资源产出计算器</h1>
 
       <div style="text-align: center; margin-bottom: 20px;">
@@ -197,7 +197,6 @@
           </div>
         </div>
       </div>
-    </div>
   </div>
 </template>
 
@@ -615,13 +614,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.backgr {
-  min-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+.vanta-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
 }
 
 .content-wrapper {
+  position: relative;
+  z-index: 1;
   min-height: 100vh;
   padding-bottom: 20px;
 }
@@ -939,11 +943,4 @@ onUnmounted(() => {
   }
 }
 
-:deep(.vanta-canvas) {
-  position: fixed !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-}
 </style>

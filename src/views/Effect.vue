@@ -12,14 +12,6 @@
     <canvas id="canvas"></canvas>
 </template>
 
-<style>
-:root, body {
-    margin: 0px;
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-}
-</style>
 <style scoped>
 :root, body {
     background: #000;
@@ -45,14 +37,17 @@ button{
 }
 </style>
 <script setup>
-import { onMounted } from 'vue';
+import { onMounted, onUnmounted } from 'vue';
 import { useRoute } from "vue-router";
 const route = useRoute()
 
 onMounted(() => {
+    document.body.style.overflow = 'hidden';
     frame();
-    // console.log(window)
-    // const window = window;
+});
+
+onUnmounted(() => {
+    document.body.style.overflow = '';
 });
 
 function project3D(x, y, z, vars) {
@@ -267,11 +262,11 @@ function frame(vars) {
         var vars = {};
         vars.canvas = document.querySelector("canvas");
         vars.ctx = vars.canvas.getContext("2d");
-        vars.canvas.width = document.body.clientWidth;
-        vars.canvas.height = document.body.clientHeight;
+        vars.canvas.width = window.innerWidth;
+        vars.canvas.height = window.innerHeight;
         window.addEventListener("resize", function () {
-            vars.canvas.width = document.body.clientWidth;
-            vars.canvas.height = document.body.clientHeight;
+            vars.canvas.width = window.innerWidth;
+            vars.canvas.height = window.innerHeight;
             vars.cx = vars.canvas.width / 2;
             vars.cy = vars.canvas.height / 2;
         }, true);
