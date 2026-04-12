@@ -617,8 +617,8 @@ onUnmounted(() => {
 <style scoped>
 .backgr {
   min-height: 100vh;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* overflow-y: auto; */
+  /* overflow-x: hidden; */
 }
 
 .content-wrapper {
