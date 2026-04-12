@@ -4,7 +4,7 @@
         
         <div>{{data.msg}}</div>
         <br>
-        <table border="1">
+        <table border="1"><tbody>
             <tr>
                 <td><el-input-number :min=0 :max=9 :controls=false style="width: 40px;height: 100%;" v-model="data.map[0][0]"/></td>
                 <td><el-input-number :min=0 :max=9 :controls=false style="width: 40px;height: 100%;" v-model="data.map[0][1]"/></td>
@@ -104,7 +104,7 @@
                 <td><el-input-number :min=0 :max=9 :controls=false style="width: 40px;height: 100%;" v-model="data.map[8][7]"/></td>
                 <td><el-input-number :min=0 :max=9 :controls=false style="width: 40px;height: 100%;" v-model="data.map[8][8]"/></td>
             </tr>
-        </table>
+        </tbody></table>
         <br>
         <el-button style="display: block;margin:0 auto;" color="#1fa2ff" plain @click="startSolve()">求解</el-button>
         <br>
