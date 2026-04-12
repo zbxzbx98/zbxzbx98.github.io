@@ -36,9 +36,7 @@ jobs:
         cp dist/index.html dist/404.html
     
     - name: Deploy to gh-pages branch
-      uses: s0/git-publish-subdir-action@v2
-      env:
-        REPO: self
-        BRANCH: gh-pages
-        FOLDER: dist
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./dist
