@@ -26,7 +26,7 @@ npm run build
 ### Fix the vulnerability
 
 ```sh
-npm audit --registry=https://registry.npmjs.org
+npm audit --registry=https://registry.npmjs.org  
 
 npm audit fix --registry=https://registry.npmjs.org  
 ```
