@@ -5,6 +5,7 @@
 
       <div style="text-align: center; margin-bottom: 20px;">
         <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
+        <a href="https://www.bilibili.com/toy/NikkeCalc/index.html" style="margin-left: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
       </div>
 
       <div class="container">
@@ -202,7 +203,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { ElCascader, ElSelect, ElOption, ElTooltip, ElIcon } from 'element-plus'
+import { ElCascader, ElSelect, ElOption, ElTooltip, ElIcon, ElNotification } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import * as THREE from "three";
 import NET from "vanta/src/vanta.net";
@@ -602,6 +603,13 @@ onMounted(() => {
     points: 13.0,
     maxDistance: 21.0,
     spacing: 16.0
+  })
+  ElNotification({
+    title: 'B站Toy版发布！',
+    message: "该工具已在B站Toy平台上发布，国内访问更加方便，详情请点击界面顶部“查看B站版”查看！",
+    position: 'bottom-right',
+    type: 'info',
+    duration: 0,
   })
 })
 
