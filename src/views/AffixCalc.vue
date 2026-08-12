@@ -5,6 +5,7 @@
 
     <div style="text-align: center; margin-bottom: 20px;">
       <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
+      <a href="https://www.bilibili.com/toy/AffixCalc/index.html" style="margin-left: 10px; margin-right: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
       <el-button color="#1fa2ff" plain @click="$router.push('NikkeCalc')">资源产出计算器</el-button>
     </div>
 
