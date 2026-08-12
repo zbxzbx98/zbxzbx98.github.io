@@ -5,6 +5,7 @@
 
     <div style="text-align: center; margin-bottom: 20px;">
       <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
+      <el-button color="#1fa2ff" plain @click="$router.push('NikkeCalc')">资源产出计算器</el-button>
     </div>
 
     <div class="container">

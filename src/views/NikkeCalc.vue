@@ -5,7 +5,8 @@
 
       <div style="text-align: center; margin-bottom: 20px;">
         <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
-        <a href="https://www.bilibili.com/toy/NikkeCalc/index.html" style="margin-left: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
+        <a href="https://www.bilibili.com/toy/NikkeCalc/index.html" style="margin-left: 10px; margin-right: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
+        <el-button color="#1fa2ff" plain @click="$router.push('AffixCalc')">装备洗练计算器</el-button>
       </div>
 
       <div class="container">
@@ -605,8 +606,8 @@ onMounted(() => {
     spacing: 16.0
   })
   ElNotification({
-    title: 'B站Toy版发布！',
-    message: "该工具已在B站Toy平台上发布，国内访问更加方便，详情请点击界面顶部“查看B站版”查看！",
+    title: '装备洗练计算器发布！',
+    message: "现已发布装备洗练计算器！再也不怕洗装备不知道怎么洗了！详情请点击界面顶部“装备洗练计算器”查看！",
     position: 'bottom-right',
     type: 'info',
     duration: 0,
