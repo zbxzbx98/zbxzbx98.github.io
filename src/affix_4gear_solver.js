@@ -480,40 +480,77 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       }
     }
 
-    // 2) 容量预算允许时主动摊薄：优先摊“单件需求下降最大”的目标
-    while (true) {
-      let totalAssign = 0;
-      for (let g = 0; g < n; g++) totalAssign += distinctCount[g];
-      if (totalAssign >= 3 * n) break;
+    // 2) 概率加权成本表决定每个目标“拆给几件装备”最划算
+    //
+    // 单装备从空状态洗到“某效果 ≥ t 阶”的期望石头成本（由单装备
+    // 精确求解器预计算）：下标 = 阶数 - 1。
+    //   COST10：10% 权重组（优越代码伤害/攻击力/暴击伤害/防御力）
+    //   COST12：12% 权重组（蓄力伤害/蓄力速度/暴击率/命中率/最大装弹数）
+    // 对目标 j 而言，用 k 件装备承担、每件需求 ceil(req/k) 的估计总成本
+    // 为 k * COST(ceil(req/k))，取使该值最小的 k 作为承担装备数。
+    // 低阶目标集中在1件装备更省，高阶目标摊薄更省。
+    const COST10 = [
+      5.5104, 5.6468, 5.8262, 6.0729, 6.4335, 7.0104, 7.5407,
+      8.3566, 9.7736, 12.8438, 24.5104, 29.5104, 37.8438, 54.5104, 104.5104,
+    ];
+    const COST12 = [
+      4.655, 4.7914, 4.9708, 5.2175, 5.5781, 6.155, 6.6853,
+      7.5012, 8.9182, 11.9884, 23.655, 28.655, 36.9884, 53.655, 103.655,
+    ];
 
-      let bestJ = -1;
-      let bestDrop = -1;
-      for (let j = 0; j < m; j++) {
-        if (deficit[j] <= 0) continue;
-        const cnt = A.reduce((a, row) => a + (row[j] ? 1 : 0), 0);
-        if (cnt >= n) continue;
-        let can = false;
-        for (let g = 0; g < n; g++) {
-          if (!A[g][j] && distinctCount[g] < 3) {
-            can = true;
-            break;
-          }
+    const curCnt = j => A.reduce((a, row) => a + (row[j] ? 1 : 0), 0);
+    const proxyCost = (j, k) => {
+      const C = targets[j].weight === 0.10 ? COST10 : COST12;
+      return k * C[Math.ceil(targets[j].req / k) - 1];
+    };
+
+    const kBest = new Array(m).fill(0);
+    for (let j = 0; j < m; j++) {
+      if (deficit[j] <= 0) {
+        kBest[j] = curCnt(j);
+        continue;
+      }
+      const minK = Math.max(curCnt(j), Math.ceil(targets[j].req / 15));
+      let best = minK;
+      let bestCost = Infinity;
+      for (let k = minK; k <= 4; k++) {
+        const c = proxyCost(j, k);
+        if (c < bestCost - 1e-9) {
+          bestCost = c;
+          best = k;
         }
-        if (!can) continue;
-        // 收益 ≈ 每件装备单栏需求的下降 × 已承担该目标的装备数
-        const drop =
-          (Math.ceil(targets[j].req / cnt) -
-            Math.ceil(targets[j].req / (cnt + 1))) * cnt;
-        if (drop > bestDrop) {
-          bestDrop = drop;
+      }
+      kBest[j] = best;
+    }
+
+    // 总栏位预算 12：超出时逐次砍掉“边际损失最小”的目标
+    let totalAssign = kBest.reduce((a, b) => a + b, 0);
+    while (totalAssign > 3 * n) {
+      let bestJ = -1;
+      let bestPenalty = Infinity;
+      for (let j = 0; j < m; j++) {
+        const minK = Math.max(curCnt(j), Math.ceil(targets[j].req / 15));
+        if (kBest[j] <= minK) continue;
+        const pen = proxyCost(j, kBest[j] - 1) - proxyCost(j, kBest[j]);
+        if (pen < bestPenalty) {
+          bestPenalty = pen;
           bestJ = j;
         }
       }
       if (bestJ === -1) break;
-      addGear(bestJ);
+      kBest[bestJ]--;
+      totalAssign--;
     }
 
-    // 3) 逐级分配阶数：同一目标在承担它的装备间尽量摊平
+    // 3) 按 kBest 分配装备：需求大的目标优先，其余选“负载最小”的装备
+    const order = targets
+      .map((_, j) => j)
+      .sort((a, b) => targets[b].req - targets[a].req);
+    for (const j of order) {
+      while (curCnt(j) < kBest[j]) addGear(j);
+    }
+
+    // 4) 逐级分配阶数：同一目标在承担它的装备间尽量摊平
     //    （优先降低每件装备该目标的需求值，避免把某件装备推到
     //      13~15 阶这类 1% 概率的高档位；次级再按总负载破平局）
     const sub = cur.map(row => row.slice());
@@ -541,7 +578,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       }
     }
 
-    // 4) 对每件装备用单装备精确求解器求解其子目标
+    // 5) 对每件装备用单装备精确求解器求解其子目标
     const fmtCost = x => {
       if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
       return x.toFixed(digitsOpt).replace(/0+$/, '').replace(/\.$/, '');

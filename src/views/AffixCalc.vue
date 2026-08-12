@@ -59,7 +59,10 @@
           </div>
 
           <div class="panel action-panel">
-            <el-button color="#1fa2ff" size="large" :loading="computing && resultMode === 'single'" @click="computeSingle">开始计算</el-button>
+            <div class="action-buttons">
+              <el-button color="#1fa2ff" size="large" :loading="computing && resultMode === 'single'" @click="computeSingle">开始计算</el-button>
+              <el-button size="large" plain @click="openSingleCompare">对比变更</el-button>
+            </div>
             <div v-if="computing && resultMode === 'single'" class="computing-tip">
               正在计算最优策略，请稍候…
             </div>
@@ -74,6 +77,58 @@
             <div class="preview-line">
               <span class="preview-label">当前状态：</span><code>{{ singleCurrentPreview }}</code><br />
               <span class="preview-label">目标词条：</span><code>{{ singleTargetPreview || '（未选择）' }}</code>
+            </div>
+          </div>
+
+          <div class="panel compare-panel" v-if="singleCompareOpen">
+            <h3 class="panel-title">对比变更（单装备）</h3>
+            <p class="panel-note">把洗练后得到的词条填到下方，点击「开始对比」查看新期望与变更前的差别；确定保留后一键替换原装备词条。</p>
+            <div class="slot-list">
+              <div class="slot-row" v-for="(slot, i) in singleCompareSlots" :key="i">
+                <span class="slot-label">栏位{{ i + 1 }}</span>
+                <el-select
+                  v-model="slot.effect"
+                  style="width: 190px"
+                  :disabled="i > 0 && singleCompareSlots[0].effect === 'wd'"
+                  @change="onCompareSlotChange(singleCompareSlots, i)"
+                >
+                  <el-option v-for="e in effectOptions" :key="e.code" :label="e.name" :value="e.code" />
+                </el-select>
+                <el-select
+                  v-model="slot.tier"
+                  style="width: 170px"
+                  :disabled="slot.effect === 'wd' || (i > 0 && singleCompareSlots[0].effect === 'wd')"
+                  placeholder="选择阶数"
+                >
+                  <el-option v-for="t in tierOptions(slot.effect)" :key="t.value" :label="t.label" :value="t.value" />
+                </el-select>
+                <el-checkbox v-model="slot.locked" :disabled="lockDisabled({ slots: singleCompareSlots }, i)">已锁定</el-checkbox>
+              </div>
+            </div>
+            <div class="compare-actions">
+              <el-button color="#1fa2ff" :loading="compareLoading && compareMode === 'single'" @click="computeSingleCompare">开始对比</el-button>
+              <el-button type="success" :disabled="!singleCompareResult || (compareLoading && compareMode === 'single')" @click="applySingleCompare">一键替换原装备词条</el-button>
+            </div>
+            <div v-if="compareLoading && compareMode === 'single'" class="computing-tip">{{ compareProgress || '正在计算对比…' }}</div>
+            <div v-if="singleCompareResult" class="compare-result">
+              <div class="compare-row">
+                <span class="compare-label">变更前期望：</span>
+                <span class="compare-cost">{{ singleCompareResult.baseCost }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">变更后期望：</span>
+                <span class="compare-cost">{{ singleCompareResult.newCost }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">全石头期望差：</span>
+                <span :class="diffClass(singleCompareResult.deltaStone)">{{ fmtNum(singleCompareResult.deltaStone) }}</span>
+                <span class="compare-verdict" :class="singleCompareResult.verdictClass">{{ singleCompareResult.verdictText }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">秘钥策略差：</span>
+                <span>{{ fmtNum(singleCompareResult.deltaKeyStone) }} 石头 / {{ fmtNum(singleCompareResult.deltaKeys) }} 秘钥</span>
+              </div>
+              <p class="note">负数为变更后更省；全石头期望为主要比较口径。</p>
             </div>
           </div>
 
@@ -177,7 +232,10 @@
           </div>
 
           <div class="panel action-panel">
-            <el-button color="#1fa2ff" size="large" :loading="computing && resultMode === 'character'" @click="computeCharacter">开始计算</el-button>
+            <div class="action-buttons">
+              <el-button color="#1fa2ff" size="large" :loading="computing && resultMode === 'character'" @click="computeCharacter">开始计算</el-button>
+              <el-button size="large" plain @click="openCharCompare">对比变更</el-button>
+            </div>
             <div v-if="computing && resultMode === 'character'" class="computing-tip">
               <span class="spinner"></span>
               {{ progressText }}（已用时 {{ elapsed }} 秒）
@@ -195,6 +253,64 @@
               <span class="preview-label">当前状态：</span>
               <code v-for="(line, gi) in characterCurrentLines" :key="gi" class="preview-block">{{ line }}</code>
               <span class="preview-label">目标词条：</span><code>{{ characterTargetPreview || '（未选择）' }}</code>
+            </div>
+          </div>
+
+          <div class="panel compare-panel" v-if="charCompareOpen">
+            <h3 class="panel-title">对比变更（角色）</h3>
+            <p class="panel-note">选择要对比的装备，把洗练后得到的词条填入下方，点击「开始对比」查看整角色新期望与变更前的差别；确定保留后一键替换该装备词条。</p>
+            <div class="slot-row">
+              <span class="slot-label">选择装备</span>
+              <el-select v-model="charCompareGear" style="width: 140px" @change="onCharCompareGearChange">
+                <el-option v-for="g in 4" :key="g" :label="'装备' + gearNames[g - 1]" :value="g - 1" />
+              </el-select>
+            </div>
+            <div class="slot-list" style="margin-top: 10px;">
+              <div class="slot-row" v-for="(slot, i) in charCompareSlots" :key="i">
+                <span class="slot-label">栏位{{ i + 1 }}</span>
+                <el-select
+                  v-model="slot.effect"
+                  style="width: 190px"
+                  :disabled="i > 0 && charCompareSlots[0].effect === 'wd'"
+                  @change="onCompareSlotChange(charCompareSlots, i)"
+                >
+                  <el-option v-for="e in effectOptions" :key="e.code" :label="e.name" :value="e.code" />
+                </el-select>
+                <el-select
+                  v-model="slot.tier"
+                  style="width: 170px"
+                  :disabled="slot.effect === 'wd' || (i > 0 && charCompareSlots[0].effect === 'wd')"
+                  placeholder="选择阶数"
+                >
+                  <el-option v-for="t in tierOptions(slot.effect)" :key="t.value" :label="t.label" :value="t.value" />
+                </el-select>
+                <el-checkbox v-model="slot.locked" :disabled="lockDisabled({ slots: charCompareSlots }, i)">已锁定</el-checkbox>
+              </div>
+            </div>
+            <div class="compare-actions">
+              <el-button color="#1fa2ff" :loading="compareLoading && compareMode === 'character'" @click="computeCharCompare">开始对比</el-button>
+              <el-button type="success" :disabled="!charCompareResult || (compareLoading && compareMode === 'character')" @click="applyCharCompare">一键替换原装备词条</el-button>
+            </div>
+            <div v-if="compareLoading && compareMode === 'character'" class="computing-tip">{{ compareProgress || '正在计算对比…' }}</div>
+            <div v-if="charCompareResult" class="compare-result">
+              <div class="compare-row">
+                <span class="compare-label">变更前期望：</span>
+                <span class="compare-cost">{{ charCompareResult.baseCost }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">变更后期望：</span>
+                <span class="compare-cost">{{ charCompareResult.newCost }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">全石头期望差：</span>
+                <span :class="diffClass(charCompareResult.deltaStone)">{{ fmtNum(charCompareResult.deltaStone) }}</span>
+                <span class="compare-verdict" :class="charCompareResult.verdictClass">{{ charCompareResult.verdictText }}</span>
+              </div>
+              <div class="compare-row">
+                <span class="compare-label">秘钥策略差：</span>
+                <span>{{ fmtNum(charCompareResult.deltaKeyStone) }} 石头 / {{ fmtNum(charCompareResult.deltaKeys) }} 秘钥</span>
+              </div>
+              <p class="note">负数为变更后更省；全石头期望为主要比较口径。</p>
             </div>
           </div>
 
@@ -248,7 +364,37 @@
             </div>
           </div>
         </el-tab-pane>
+
+        <!-- ==================== 洗词条模拟器 ==================== -->
+        <el-tab-pane label="洗词条模拟器" name="simulator">
+          <AffixSimulator />
+        </el-tab-pane>
       </el-tabs>
+
+      <div class="footer-section">
+        <div class="footer-content">
+          <div class="instructions">
+            <h3>注意事项</h3>
+            <div class="instruction-grid">
+              <div class="instruction-item">
+                <div class="instruction-text">
+                  本计算器仅用于估计词条期望和大致给出最优策略，不一定为绝对正确的策略，任何使用本计算器造成的石头/秘钥消耗由您本人自行承担
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="contact-info">
+            <h3>制作信息</h3>
+            <div class="contact-platforms">
+              <div class="contact-item">
+                <div class="contact-platform">制作</div>
+                <div class="contact-id">zbxzbx98</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -258,6 +404,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import * as THREE from 'three'
 import NET from 'vanta/src/vanta.net'
+import AffixSimulator from '../components/AffixSimulator.vue'
 
 /* ==================== 词条与数值常量（来自《代号规定和已有算法.txt》） ==================== */
 
@@ -338,9 +485,26 @@ const elapsed = ref(0)
 const result = ref(null)
 const errorMsg = ref('')
 
+// 对比变更
+const singleCompareOpen = ref(false)
+const singleCompareSlots = ref([blankSlot(), blankSlot(), blankSlot()])
+const singleCompareResult = ref(null)
+const charCompareOpen = ref(false)
+const charCompareGear = ref(0)
+const charCompareSlots = ref([blankSlot(), blankSlot(), blankSlot()])
+const charCompareResult = ref(null)
+const compareLoading = ref(false)
+const compareMode = ref('')
+const compareProgress = ref('')
+
 let worker = null
 let requestId = 0
 let elapsedTimer = null
+let lastSingleSig = ''
+let lastCharSig = ''
+let compareReqId = 0
+let currentCompareReqId = 0
+const pendingCompare = new Map()
 
 /* ==================== 计算属性 / 工具函数 ==================== */
 
@@ -493,7 +657,24 @@ function ensureWorker() {
 
 function handleWorkerMessage(e) {
   const msg = e.data
-  if (!msg || msg.id !== requestId) return
+  if (!msg) return
+
+  // 对比变更请求
+  const cmp = pendingCompare.get(msg.id)
+  if (cmp) {
+    if (msg.progress) {
+      if (msg.id === currentCompareReqId) {
+        compareProgress.value = formatProgress(msg.progress)
+      }
+      return
+    }
+    pendingCompare.delete(msg.id)
+    if (msg.ok) cmp.resolve(msg.result)
+    else cmp.reject(new Error(msg.error))
+    return
+  }
+
+  if (msg.id !== requestId) return
 
   if (msg.progress) {
     progressText.value = formatProgress(msg.progress)
@@ -566,6 +747,7 @@ function computeSingle() {
     ElMessage.error(err)
     return
   }
+  lastSingleSig = singleSig()
   requestCompute({
     type: 'single',
     current: singleCurrentPreview.value,
@@ -579,6 +761,7 @@ function computeCharacter() {
     ElMessage.error(err)
     return
   }
+  lastCharSig = charSig()
   requestCompute({
     type: 'character',
     current: characterCurrentLines.value.join('/'),
@@ -594,6 +777,183 @@ function cancelCompute() {
     worker.terminate()
     worker = null
   }
+}
+
+/* ==================== 对比变更 ==================== */
+
+function singleSig() {
+  return singleCurrentPreview.value + '||' + singleTargetPreview.value
+}
+
+function charSig() {
+  return characterCurrentLines.value.join('/') + '||' + characterTargetPreview.value
+}
+
+function openSingleCompare() {
+  singleCompareOpen.value = true
+  singleCompareSlots.value = singleGear.value.slots.map(s => ({ ...s }))
+  singleCompareResult.value = null
+}
+
+function openCharCompare() {
+  charCompareOpen.value = true
+  syncCharCompareSlots()
+  charCompareResult.value = null
+}
+
+function syncCharCompareSlots() {
+  charCompareSlots.value = characterGears.value[charCompareGear.value].slots.map(s => ({ ...s }))
+}
+
+function onCharCompareGearChange() {
+  syncCharCompareSlots()
+  charCompareResult.value = null
+}
+
+function onCompareSlotChange(list, i) {
+  onSlotEffectChange({ slots: list }, i)
+}
+
+function runCompare(type, current, target) {
+  return new Promise((resolve, reject) => {
+    const id = ++compareReqId
+    currentCompareReqId = id
+    pendingCompare.set(id, { resolve, reject })
+    ensureWorker().postMessage({
+      id,
+      type,
+      current,
+      target,
+      options: undefined,
+    })
+  })
+}
+
+async function computeSingleCompare() {
+  const target = singleTargetPreview.value
+  if (!target) {
+    ElMessage.error('请先选择目标词条。')
+    return
+  }
+  compareLoading.value = true
+  compareMode.value = 'single'
+  compareProgress.value = ''
+  try {
+    const newCurrent = singleCompareSlots.value.map(slotToken).join(',')
+    let baseCost = null
+    if (result.value && result.value.mode === 'single' && lastSingleSig === singleSig()) {
+      baseCost = result.value.cost
+    } else {
+      compareProgress.value = '正在计算变更前期望…'
+      const base = await runCompare('single', singleCurrentPreview.value, target)
+      baseCost = base.cost
+    }
+    compareProgress.value = '正在计算变更后期望…'
+    const next = await runCompare('single', newCurrent, target)
+    singleCompareResult.value = buildCompareResult(baseCost, next.cost)
+  } catch (e) {
+    ElMessage.error('对比计算失败：' + translateCodes(e && e.message ? e.message : String(e)))
+    singleCompareResult.value = null
+  } finally {
+    compareLoading.value = false
+    compareProgress.value = ''
+  }
+}
+
+async function computeCharCompare() {
+  const target = characterTargetPreview.value
+  if (!target) {
+    ElMessage.error('请先选择目标词条。')
+    return
+  }
+  compareLoading.value = true
+  compareMode.value = 'character'
+  compareProgress.value = ''
+  try {
+    const newCurrent = characterGears.value
+      .map((g, gi) => (gi === charCompareGear.value ? charCompareSlots.value.map(slotToken).join(',') : gearToken(g)))
+      .join('/')
+    let baseCost = null
+    if (result.value && result.value.mode === 'character' && lastCharSig === charSig()) {
+      baseCost = result.value.cost
+    } else {
+      compareProgress.value = '正在计算变更前期望…'
+      const base = await runCompare('character', characterCurrentLines.value.join('/'), target)
+      baseCost = base.cost
+    }
+    compareProgress.value = '正在计算变更后期望…'
+    const next = await runCompare('character', newCurrent, target)
+    charCompareResult.value = buildCompareResult(baseCost, next.cost)
+  } catch (e) {
+    ElMessage.error('对比计算失败：' + translateCodes(e && e.message ? e.message : String(e)))
+    charCompareResult.value = null
+  } finally {
+    compareLoading.value = false
+    compareProgress.value = ''
+  }
+}
+
+function applySingleCompare() {
+  singleGear.value.slots = singleCompareSlots.value.map(s => ({ ...s }))
+  singleCompareOpen.value = false
+  singleCompareResult.value = null
+  result.value = null
+  ElMessage.success('已替换原装备词条，可重新开始计算。')
+}
+
+function applyCharCompare() {
+  const gear = characterGears.value[charCompareGear.value]
+  gear.slots = charCompareSlots.value.map(s => ({ ...s }))
+  charCompareOpen.value = false
+  charCompareResult.value = null
+  result.value = null
+  ElMessage.success(`已替换装备${gearNames[charCompareGear.value]}的词条，可重新开始计算。`)
+}
+
+function parseCostParts(c) {
+  const m = String(c || '').match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/)
+  if (!m) return null
+  return { allStone: parseFloat(m[1]), keyStone: parseFloat(m[2]), keys: parseFloat(m[3]) }
+}
+
+function buildCompareResult(baseCost, newCost) {
+  const b = parseCostParts(baseCost)
+  const n = parseCostParts(newCost)
+  if (!b || !n) {
+    return {
+      baseCost,
+      newCost,
+      deltaStone: NaN,
+      deltaKeyStone: NaN,
+      deltaKeys: NaN,
+      verdictText: '无法比较',
+      verdictClass: '',
+    }
+  }
+  const deltaStone = n.allStone - b.allStone
+  const deltaKeyStone = n.keyStone - b.keyStone
+  const deltaKeys = n.keys - b.keys
+  let verdictText = '持平'
+  let verdictClass = ''
+  if (deltaStone < -1e-9) {
+    verdictText = '变更后更优'
+    verdictClass = 'better'
+  } else if (deltaStone > 1e-9) {
+    verdictText = '变更后更差'
+    verdictClass = 'worse'
+  }
+  return { baseCost, newCost, deltaStone, deltaKeyStone, deltaKeys, verdictText, verdictClass }
+}
+
+function fmtNum(x) {
+  if (!Number.isFinite(x)) return '-'
+  if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x))
+  return x.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+}
+
+function diffClass(x) {
+  if (!Number.isFinite(x)) return ''
+  return x <= 0 ? 'diff-good' : 'diff-bad'
 }
 
 /* ==================== 结果展示 ==================== */
@@ -794,6 +1154,13 @@ h1 {
   text-align: center;
 }
 
+.action-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
 .computing-tip {
   margin-top: 12px;
   color: #3553ff;
@@ -803,6 +1170,73 @@ h1 {
 .error-alert {
   margin-top: 14px;
   text-align: left;
+}
+
+.compare-panel {
+  border: 1px solid #e3ecf7;
+  background: #fbfdff;
+}
+
+.compare-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.compare-result {
+  margin-top: 14px;
+  background: #f7faff;
+  border: 1px solid #e3ecf7;
+  border-radius: 8px;
+  padding: 10px 14px;
+  line-height: 1.9;
+}
+
+.compare-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.compare-label {
+  min-width: 110px;
+  color: #666;
+}
+
+.compare-cost {
+  font-weight: bold;
+  color: #1fa2ff;
+}
+
+.compare-verdict {
+  margin-left: 8px;
+  font-weight: bold;
+  font-size: 13px;
+  padding: 1px 10px;
+  border-radius: 10px;
+}
+
+.compare-verdict.better {
+  color: #529b2e;
+  background: #f0f9eb;
+}
+
+.compare-verdict.worse {
+  color: #f56c6c;
+  background: #fef0f0;
+}
+
+.diff-good {
+  color: #67c23a !important;
+  font-weight: bold;
+}
+
+.diff-bad {
+  color: #f56c6c !important;
+  font-weight: bold;
 }
 
 .spinner {
@@ -978,6 +1412,106 @@ code {
   font-weight: bold;
 }
 
+.footer-section {
+  background: linear-gradient(145deg, #fff, #f8fafc);
+  border-radius: 20px;
+  margin: 80px 15px 15px 15px;
+  padding: 20px;
+  box-shadow: 0 15px 35px #00000014;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  position: relative;
+  overflow: hidden;
+}
+
+.footer-section:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #1fa2ff, #3553ff);
+}
+
+.footer-content {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 30px;
+  align-items: start;
+}
+
+.instructions h3,
+.contact-info h3 {
+  font-size: 1.2em;
+  font-weight: 700;
+  color: #000;
+  margin-bottom: 15px;
+  text-align: center;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 8px;
+}
+
+.instruction-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+}
+
+.instruction-item {
+  padding: 15px;
+  background: #667eea0d;
+  border-radius: 12px;
+  border-left: 4px solid #1fa2ff;
+  transition: all 0.3s ease;
+}
+
+.instruction-item:hover {
+  background: #667eea1a;
+  transform: translate(5px);
+}
+
+.instruction-text {
+  color: #000;
+  line-height: 1.6;
+  font-weight: 700;
+}
+
+.contact-platforms {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.contact-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: #667eea0d;
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.1);
+  transition: all 0.3s ease;
+}
+
+.contact-item:hover {
+  background: #667eea1a;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px #667eea33;
+}
+
+.contact-platform {
+  font-weight: 700;
+  color: #1fa2ff;
+  font-size: 1.1em;
+}
+
+.contact-id {
+  font-weight: 600;
+  color: #000;
+  font-size: 1.1em;
+}
+
 @media (max-width: 768px) {
   .gear-grid {
     grid-template-columns: 1fr;
@@ -998,6 +1532,12 @@ code {
   .slot-row :deep(.el-select) {
     width: 100% !important;
     flex: 1 1 100%;
+  }
+
+  .footer-content,
+  .contact-platforms,
+  .instruction-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>
