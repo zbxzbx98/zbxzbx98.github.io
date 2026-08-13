@@ -5,8 +5,12 @@
         <el-radio-button value="single">单装备</el-radio-button>
         <el-radio-button value="character">角色</el-radio-button>
       </el-radio-group>
-      <el-button color="#1fa2ff" :loading="expectLoading" @click="startSimulation">开始随机模拟</el-button>
-      <el-button plain @click="startSimulation" :disabled="!started">重新开始</el-button>
+      <el-radio-group v-model="simMode" :disabled="started">
+        <el-radio-button value="random">随机模拟</el-radio-button>
+        <el-radio-button value="custom">自定义模拟</el-radio-button>
+      </el-radio-group>
+      <el-button v-if="simMode === 'random'" color="#1fa2ff" :loading="expectLoading" @click="startSimulation">开始随机模拟</el-button>
+      <el-button plain @click="restartGame" :disabled="!started">重新开始</el-button>
       <el-button plain type="danger" @click="exitGame" :disabled="!started">退出关卡</el-button>
       <el-button plain :disabled="!started" @click="showExpectation = true">查看期望</el-button>
     </div>
@@ -64,7 +68,104 @@
       </div>
     </template>
 
-    <el-empty v-else description="选择模式后点击「开始随机模拟」" />
+    <template v-else-if="simMode === 'custom'">
+      <div class="panel custom-panel">
+        <h3 class="panel-title">自定义初始状态（{{ mode === 'single' ? '单装备' : '角色' }}）</h3>
+        <p class="panel-note">手动输入当前装备词条与目标，开始模拟后玩法与随机模拟一致；「石头锁」为初始永久锁，可随时免费解锁。</p>
+
+        <div v-if="mode === 'single'" class="gear-grid single">
+          <div class="gear-card">
+            <h4 class="gear-title">装备</h4>
+            <div class="slot-row" v-for="(slot, si) in customSingleGear.slots" :key="si">
+              <span class="slot-label">栏位{{ si + 1 }}</span>
+              <el-select
+                v-model="slot.effect"
+                style="width: 160px;"
+                :disabled="si > 0 && customSingleGear.slots[0].effect === 'wd'"
+                @change="onCustomSlotChange(customSingleGear, si)"
+              >
+                <el-option v-for="e in gearEffectOptions(customSingleGear, si)" :key="e.code" :label="e.name" :value="e.code" />
+              </el-select>
+              <el-select
+                v-model="slot.tier"
+                style="width: 150px;"
+                :disabled="slot.effect === 'wd' || (si > 0 && customSingleGear.slots[0].effect === 'wd')"
+                placeholder="阶数"
+              >
+                <el-option v-for="t in tierOptions(slot.effect)" :key="t.value" :label="t.label" :value="t.value" />
+              </el-select>
+              <el-checkbox
+                :model-value="!!customSingleGear.locks[si]"
+                :disabled="slot.effect === 'wd' || (Object.keys(customSingleGear.locks).length >= 2 && !customSingleGear.locks[si])"
+                @change="v => onCustomLockChange(customSingleGear, si, v)"
+              >石头锁</el-checkbox>
+            </div>
+          </div>
+        </div>
+
+        <div v-else class="gear-grid">
+          <div class="gear-card" v-for="(gear, gi) in customCharGears" :key="gi">
+            <h4 class="gear-title">装备{{ gearNames[gi] }}</h4>
+            <div class="slot-row" v-for="(slot, si) in gear.slots" :key="si">
+              <span class="slot-label">栏位{{ si + 1 }}</span>
+              <el-select
+                v-model="slot.effect"
+                style="width: 160px;"
+                :disabled="si > 0 && gear.slots[0].effect === 'wd'"
+                @change="onCustomSlotChange(gear, si)"
+              >
+                <el-option v-for="e in gearEffectOptions(gear, si)" :key="e.code" :label="e.name" :value="e.code" />
+              </el-select>
+              <el-select
+                v-model="slot.tier"
+                style="width: 150px;"
+                :disabled="slot.effect === 'wd' || (si > 0 && gear.slots[0].effect === 'wd')"
+                placeholder="阶数"
+              >
+                <el-option v-for="t in tierOptions(slot.effect)" :key="t.value" :label="t.label" :value="t.value" />
+              </el-select>
+              <el-checkbox
+                :model-value="!!gear.locks[si]"
+                :disabled="slot.effect === 'wd' || (Object.keys(gear.locks).length >= 2 && !gear.locks[si])"
+                @change="v => onCustomLockChange(gear, si, v)"
+              >石头锁</el-checkbox>
+            </div>
+          </div>
+        </div>
+
+        <h3 class="panel-title custom-target-title">自定义目标词条（{{ mode === 'single' ? '最多3个' : '最多5个，四件合计' }}）</h3>
+        <div class="slot-list">
+          <div class="slot-row" v-for="(t, i) in customTargets" :key="i">
+            <span class="slot-label">目标{{ i + 1 }}</span>
+            <el-select v-model="t.effect" style="width: 160px;" placeholder="选择词条">
+              <el-option v-for="e in targetEffectOptions(customTargets, i)" :key="e.code" :label="e.name" :value="e.code" />
+            </el-select>
+            <el-select v-model="t.tier" style="width: 150px;" :disabled="!t.effect" placeholder="选择阶数">
+              <template v-if="mode === 'single'">
+                <el-option v-for="opt in tierOptions(t.effect)" :key="opt.value" :label="opt.label" :value="opt.value" />
+              </template>
+              <template v-else>
+                <el-option v-for="n in 60" :key="n" :label="'阶数' + n" :value="n" />
+              </template>
+            </el-select>
+            <el-button v-if="customTargets.length > 1" text type="danger" @click="removeCustomTarget(i)">删除</el-button>
+          </div>
+        </div>
+        <div class="add-row">
+          <el-button plain :disabled="customTargets.length >= (mode === 'single' ? 3 : 5)" @click="addCustomTarget">+ 添加目标词条</el-button>
+        </div>
+        <p v-if="mode === 'character'" class="rule-note">
+          角色目标需满足：单词条阶数 ≤ 60；全部词条总阶数 ≤ 180；各词条阶数 ÷15 向上取整后相加 ≤ 12。
+        </p>
+
+        <div class="compare-actions">
+          <el-button color="#1fa2ff" size="large" @click="startCustomSimulation">开始模拟</el-button>
+        </div>
+        <p v-if="customError" class="custom-error">{{ customError }}</p>
+      </div>
+    </template>
+
+    <el-empty v-else description="选择模式后点击「开始随机模拟」或使用「自定义模拟」" />
 
     <!-- 洗练结果弹窗 -->
     <el-dialog
@@ -113,9 +214,15 @@
       </template>
       <template #footer>
         <div class="wash-footer">
-          <el-button class="btn-keep" @click="resolveWash(false)">效果保留</el-button>
-          <el-button class="btn-apply" @click="resolveWash(true)">效果变更</el-button>
-          <p class="dialog-note wash-note">选择「效果保留」会放弃本次结果；秘钥锁同样不会恢复。</p>
+          <template v-if="pendingWash && pendingWash.forceApply">
+            <el-button class="btn-apply" @click="resolveWash(true)">应用</el-button>
+            <p class="dialog-note wash-note">空装备首次改造只能应用，且固定获得 11 阶词条。</p>
+          </template>
+          <template v-else>
+            <el-button class="btn-keep" @click="resolveWash(false)">效果保留</el-button>
+            <el-button class="btn-apply" @click="resolveWash(true)">效果变更</el-button>
+            <p class="dialog-note wash-note">选择「效果保留」会放弃本次结果；秘钥锁同样不会恢复。</p>
+          </template>
         </div>
       </template>
     </el-dialog>
@@ -148,7 +255,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onUnmounted, watch } from 'vue'
 
 /* ==================== 游戏常量 ==================== */
 
@@ -210,9 +317,21 @@ const LOCK_STONE = [2, 3]
 const LOCK_KEY = [20, 30]
 const gearNames = ['一', '二', '三', '四']
 
+const blankSlot = () => ({ effect: 'wd', tier: 0 })
+const blankTarget = () => ({ effect: '', tier: 13 })
+const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()], locks: {} })
+
+const effectOptions = [
+  { code: 'wd', name: '空词条' },
+  ...EFFECT_WEIGHTS.map(e => ({ code: e.code, name: EFFECT_NAMES[e.code] })),
+]
+
+const targetEffectOptionsList = EFFECT_WEIGHTS.map(e => ({ code: e.code, name: EFFECT_NAMES[e.code] }))
+
 /* ==================== 状态 ==================== */
 
 const mode = ref('single')
+const simMode = ref('random')
 const started = ref(false)
 const gears = ref([])
 const targets = ref([])
@@ -226,6 +345,12 @@ const expectLoading = ref(false)
 const expectProgress = ref('')
 const dialogVisible = ref(false)
 const pendingWash = ref(null)
+
+// 自定义模拟
+const customSingleGear = ref(blankGear())
+const customCharGears = ref(Array.from({ length: 4 }, () => blankGear()))
+const customTargets = ref([blankTarget()])
+const customError = ref('')
 
 let worker = null
 let reqId = 0
@@ -300,16 +425,122 @@ function generateTargets(maxCount, maxTier) {
   }
 
   // 角色模式：1..60，且满足 单词条≤60、总和≤180、Σ⌈阶数/15⌉≤12
-  for (let attempt = 0; attempt < 50; attempt++) {
+  for (let attempt = 0; attempt < 200; attempt++) {
     const tiers = effects.map(() => 5 + Math.floor(Math.random() * 56))
-    const sum = tiers.reduce((a, b) => a + b, 0)
-    const slots = tiers.reduce((a, b) => a + Math.ceil(b / 15), 0)
-    if (sum <= 180 && slots <= 12) {
-      return effects.map((e, i) => ({ effect: e, tier: tiers[i] }))
+    const list = effects.map((e, i) => ({ effect: e, tier: tiers[i] }))
+    if (isCharacterTargetFeasible(list)) return list
+  }
+  // 兜底：5..30 必定合法（5件×30=150≤180，⌈30/15⌉×5=10≤12）
+  return effects.map(e => ({ effect: e, tier: 5 + Math.floor(Math.random() * 26) }))
+}
+
+// 角色目标可行性：单词条 1..60、总阶数 ≤180、各词条阶数÷15向上取整之和 ≤12
+function isCharacterTargetFeasible(list) {
+  if (!Array.isArray(list) || list.length > 5) return false
+  const sum = list.reduce((s, t) => s + t.tier, 0)
+  const slots = list.reduce((s, t) => s + Math.ceil(t.tier / 15), 0)
+  return list.every(t => Number.isInteger(t.tier) && t.tier >= 1 && t.tier <= 60) && sum <= 180 && slots <= 12
+}
+
+/* ==================== 自定义模拟 ==================== */
+
+function tierOptions(effect) {
+  if (!effect || effect === 'wd') return []
+  return TIER_VALUES[effect].map((v, idx) => ({
+    value: idx + 1,
+    label: `阶数${idx + 1}（${v}）`,
+  }))
+}
+
+function gearEffectOptions(gear, si) {
+  // 只有非空词条才占用槽位，空词条(未获取效果)不参与去重
+  const used = gear.slots
+    .map((s, i) => (i === si ? '' : s.effect))
+    .filter(e => e && e !== 'wd')
+  return effectOptions.filter(e => !used.includes(e.code))
+}
+
+function targetEffectOptions(list, i) {
+  const used = list.map((t, k) => (k === i ? '' : t.effect)).filter(Boolean)
+  return targetEffectOptionsList.filter(e => !used.includes(e.code))
+}
+
+function onCustomSlotChange(gear, si) {
+  const slot = gear.slots[si]
+  if (slot.effect === 'wd') {
+    slot.tier = 0
+    delete gear.locks[si]
+  } else if (!slot.tier || slot.tier < 1 || slot.tier > 15) {
+    slot.tier = 1
+  }
+  if (si === 0 && slot.effect === 'wd') {
+    gear.slots[1] = blankSlot()
+    gear.slots[2] = blankSlot()
+    delete gear.locks[1]
+    delete gear.locks[2]
+  }
+}
+
+function onCustomLockChange(gear, si, val) {
+  if (val) gear.locks[si] = 'stone'
+  else delete gear.locks[si]
+}
+
+function addCustomTarget() {
+  const max = mode.value === 'single' ? 3 : 5
+  if (customTargets.value.length >= max) return
+  customTargets.value.push(blankTarget())
+}
+
+function removeCustomTarget(i) {
+  if (customTargets.value.length <= 1) return
+  customTargets.value.splice(i, 1)
+}
+
+function cloneCustomGear(gear) {
+  return {
+    slots: gear.slots.map(s => ({ ...s })),
+    locks: { ...gear.locks },
+  }
+}
+
+function validateCustom() {
+  const gearList = mode.value === 'single' ? [customSingleGear.value] : customCharGears.value
+  for (let g = 0; g < gearList.length; g++) {
+    const gear = gearList[g]
+    const seen = new Set()
+    let lockedCount = 0
+    for (let si = 0; si < 3; si++) {
+      const s = gear.slots[si]
+      if (s.effect !== 'wd') {
+        if (seen.has(s.effect)) return `装备${gearNames[g]}内词条不能重复`
+        seen.add(s.effect)
+        if (!Number.isInteger(s.tier) || s.tier < 1 || s.tier > 15) {
+          return `装备${gearNames[g]}栏位${si + 1}的阶数需在 1~15`
+        }
+      }
+      if (gear.locks[si]) lockedCount++
+    }
+    if (lockedCount > 2) return `每件装备最多锁定 2 个栏位`
+  }
+
+  const list = customTargets.value.filter(t => t.effect)
+  if (!list.length) return '请至少选择 1 个目标词条'
+  const maxCount = mode.value === 'single' ? 3 : 5
+  if (list.length > maxCount) return `目标词条最多 ${maxCount} 个`
+  const seenT = new Set()
+  for (const t of list) {
+    if (seenT.has(t.effect)) return '目标词条不能重复'
+    seenT.add(t.effect)
+    const maxTier = mode.value === 'single' ? 15 : 60
+    if (!Number.isInteger(t.tier) || t.tier < 1 || t.tier > maxTier) {
+      return `目标词条「${EFFECT_NAMES[t.effect]}」的阶数需在 1~${maxTier}`
     }
   }
-  // 兜底：5..30 必定合法
-  return effects.map(e => ({ effect: e, tier: 5 + Math.floor(Math.random() * 26) }))
+  if (mode.value === 'character' && !isCharacterTargetFeasible(list)) {
+    return '角色目标不满足：单词条 ≤60、总和 ≤180、各词条阶数÷15向上取整之和 ≤12'
+  }
+  return null
 }
 
 /* ==================== 目标判定 ==================== */
@@ -378,7 +609,7 @@ let washAudio = null
 function playWashSound() {
   try {
     if (!washAudio) {
-      washAudio = new Audio('/effect.mp3')
+      washAudio = new Audio('./effect.mp3')
       washAudio.preload = 'auto'
     }
     washAudio.currentTime = 0
@@ -393,6 +624,9 @@ function startWash(gi, type) {
   const gear = gears.value[gi]
   const cost = WASH_STONE[lockCount(gear)]
   stonesUsed.value += cost
+
+  // 空装备（三个栏位均为空）：首次改造只能应用，且固定获得 11 阶词条
+  const emptyGear = type === 'xg' && gear.slots.every(s => s.effect === 'wd')
 
   const oldSlots = gear.slots.map(s => ({ ...s }))
   const newSlots = oldSlots.map(s => ({ ...s }))
@@ -412,7 +646,7 @@ function startWash(gi, type) {
       if (gear.locks[si]) continue
       if (Math.random() < SLOT_GET[si]) {
         const effect = randomEffect(keptEffects)
-        newSlots[si] = { effect, tier: randomTier() }
+        newSlots[si] = { effect, tier: emptyGear ? 11 : randomTier() }
         keptEffects.push(effect)
       } else {
         newSlots[si] = { effect: 'wd', tier: 0 }
@@ -432,6 +666,7 @@ function startWash(gi, type) {
     type,
     rows,
     cost,
+    forceApply: emptyGear,
     keyLocks: Object.keys(gear.locks).filter(si => gear.locks[si] === 'key').map(Number),
   }
   dialogVisible.value = true
@@ -440,6 +675,8 @@ function startWash(gi, type) {
 function resolveWash(apply) {
   const w = pendingWash.value
   if (!w) return
+  // 空装备首次改造只能应用
+  if (w.forceApply) apply = true
   const gear = gears.value[w.gearIndex]
   if (apply) {
     gear.slots = w.rows.map(r => ({ ...r.new }))
@@ -468,7 +705,7 @@ function tierClass(tier) {
 
 function buildCurrent() {
   const gearStr = g =>
-    g.slots.map(s => '0' + s.effect + (s.effect === 'wd' ? 0 : s.tier)).join(',')
+    g.slots.map((s, si) => (g.locks && g.locks[si] === 'stone' ? '1' : '0') + s.effect + (s.effect === 'wd' ? 0 : s.tier)).join(',')
   return gears.value.map(gearStr).join('/')
 }
 
@@ -518,7 +755,7 @@ function computeExpectation(current, targetStr) {
   return { id, promise }
 }
 
-async function startSimulation() {
+async function beginGame(gearList, targetList) {
   started.value = true
   won.value = false
   showExpectation.value = false
@@ -530,19 +767,8 @@ async function startSimulation() {
   pendingWash.value = null
   dialogVisible.value = false
 
-  const gearCount = mode.value === 'single' ? 1 : 4
-  gears.value = Array.from({ length: gearCount }, () => generateGear())
-  targets.value = mode.value === 'single'
-    ? generateTargets(3, 15)
-    : generateTargets(5, 60)
-
-  // 避免一开始就达标（重试几次）
-  for (let i = 0; i < 20 && goalMetFor(gears.value, targets.value); i++) {
-    gears.value = Array.from({ length: gearCount }, () => generateGear())
-    targets.value = mode.value === 'single'
-      ? generateTargets(3, 15)
-      : generateTargets(5, 60)
-  }
+  gears.value = gearList
+  targets.value = targetList
 
   const current = buildCurrent()
   const targetStr = targets.value.map(t => t.effect + t.tier).join(',')
@@ -561,6 +787,45 @@ async function startSimulation() {
   }
 
   checkWin()
+}
+
+async function startSimulation() {
+  const gearCount = mode.value === 'single' ? 1 : 4
+  let g = Array.from({ length: gearCount }, () => generateGear())
+  let t = mode.value === 'single'
+    ? generateTargets(3, 15)
+    : generateTargets(5, 60)
+
+  // 避免一开始就达标（重试几次）；角色目标可行性随机生成已保证，这里再兜底一次
+  for (let i = 0; i < 20 && goalMetFor(g, t); i++) {
+    g = Array.from({ length: gearCount }, () => generateGear())
+    t = mode.value === 'single'
+      ? generateTargets(3, 15)
+      : generateTargets(5, 60)
+  }
+  if (mode.value === 'character' && !isCharacterTargetFeasible(t)) {
+    t = generateTargets(5, 60)
+  }
+  await beginGame(g, t)
+}
+
+function restartGame() {
+  if (simMode.value === 'custom') startCustomSimulation()
+  else startSimulation()
+}
+
+function startCustomSimulation() {
+  const err = validateCustom()
+  if (err) {
+    customError.value = err
+    return
+  }
+  customError.value = ''
+  const gearList = mode.value === 'single'
+    ? [cloneCustomGear(customSingleGear.value)]
+    : customCharGears.value.map(cloneCustomGear)
+  const targetList = customTargets.value.filter(t => t.effect).map(t => ({ ...t }))
+  beginGame(gearList, targetList)
 }
 
 function exitGame() {
@@ -602,6 +867,16 @@ function diffClass(x) {
   return x <= 0 ? 'diff-good' : 'diff-bad'
 }
 
+watch(mode, () => {
+  customTargets.value = [blankTarget()]
+  customError.value = ''
+})
+
+watch(simMode, () => {
+  customTargets.value = [blankTarget()]
+  customError.value = ''
+})
+
 onUnmounted(() => {
   if (worker) {
     worker.terminate()
@@ -634,6 +909,53 @@ onUnmounted(() => {
   margin: 0 0 10px;
   font-size: 17px;
   color: #1fa2ff;
+}
+
+.panel-note {
+  margin: 0 0 14px;
+  color: #666;
+  font-size: 13px;
+}
+
+.custom-target-title {
+  margin-top: 18px;
+}
+
+.slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.add-row {
+  margin-top: 12px;
+}
+
+.rule-note {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: #fff7e6;
+  border-left: 4px solid #ffb800;
+  border-radius: 6px;
+  color: #8a6100;
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.custom-error {
+  margin-top: 12px;
+  text-align: center;
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.compare-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .target-chips {
@@ -745,6 +1067,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .wash-hint {
