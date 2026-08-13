@@ -6300,6 +6300,906 @@
             "credit_mul": "72.48k",
             "battle_data_set_mul": "743.62k",
             "core_dust_mul": "117.5"
+        },
+        {
+            "level": 701,
+            "credit": "45.34k",
+            "battle_data_set": "513.37k",
+            "core_dust": "81.09",
+            "credit_mul": "72.55k",
+            "battle_data_set_mul": "744.38k",
+            "core_dust_mul": "117.58"
+        },
+        {
+            "level": 702,
+            "credit": "45.38k",
+            "battle_data_set": "513.89k",
+            "core_dust": "81.15",
+            "credit_mul": "72.62k",
+            "battle_data_set_mul": "745.14k",
+            "core_dust_mul": "117.67"
+        },
+        {
+            "level": 703,
+            "credit": "45.43k",
+            "battle_data_set": "514.41k",
+            "core_dust": "81.21",
+            "credit_mul": "72.69k",
+            "battle_data_set_mul": "745.9k",
+            "core_dust_mul": "117.76"
+        },
+        {
+            "level": 704,
+            "credit": "45.47k",
+            "battle_data_set": "514.94k",
+            "core_dust": "81.27",
+            "credit_mul": "72.75k",
+            "battle_data_set_mul": "746.66k",
+            "core_dust_mul": "117.85"
+        },
+        {
+            "level": 705,
+            "credit": "45.51k",
+            "battle_data_set": "515.46k",
+            "core_dust": "81.33",
+            "credit_mul": "72.82k",
+            "battle_data_set_mul": "747.42k",
+            "core_dust_mul": "117.93"
+        },
+        {
+            "level": 706,
+            "credit": "45.55k",
+            "battle_data_set": "515.99k",
+            "core_dust": "81.39",
+            "credit_mul": "72.89k",
+            "battle_data_set_mul": "748.18k",
+            "core_dust_mul": "118.02"
+        },
+        {
+            "level": 707,
+            "credit": "45.6k",
+            "battle_data_set": "516.51k",
+            "core_dust": "81.45",
+            "credit_mul": "72.96k",
+            "battle_data_set_mul": "748.94k",
+            "core_dust_mul": "118.11"
+        },
+        {
+            "level": 708,
+            "credit": "45.64k",
+            "battle_data_set": "517.03k",
+            "core_dust": "81.51",
+            "credit_mul": "73.03k",
+            "battle_data_set_mul": "749.7k",
+            "core_dust_mul": "118.18"
+        },
+        {
+            "level": 709,
+            "credit": "45.68k",
+            "battle_data_set": "517.56k",
+            "core_dust": "81.57",
+            "credit_mul": "73.09k",
+            "battle_data_set_mul": "750.46k",
+            "core_dust_mul": "118.27"
+        },
+        {
+            "level": 710,
+            "credit": "45.72k",
+            "battle_data_set": "518.08k",
+            "core_dust": "81.63",
+            "credit_mul": "73.16k",
+            "battle_data_set_mul": "751.22k",
+            "core_dust_mul": "118.36"
+        },
+        {
+            "level": 711,
+            "credit": "45.77k",
+            "battle_data_set": "518.6k",
+            "core_dust": "81.69",
+            "credit_mul": "73.23k",
+            "battle_data_set_mul": "751.97k",
+            "core_dust_mul": "118.45"
+        },
+        {
+            "level": 712,
+            "credit": "45.81k",
+            "battle_data_set": "519.12k",
+            "core_dust": "81.75",
+            "credit_mul": "73.3k",
+            "battle_data_set_mul": "752.73k",
+            "core_dust_mul": "118.53"
+        },
+        {
+            "level": 713,
+            "credit": "45.85k",
+            "battle_data_set": "519.65k",
+            "core_dust": "81.81",
+            "credit_mul": "73.37k",
+            "battle_data_set_mul": "753.49k",
+            "core_dust_mul": "118.62"
+        },
+        {
+            "level": 714,
+            "credit": "45.89k",
+            "battle_data_set": "520.17k",
+            "core_dust": "81.86",
+            "credit_mul": "73.43k",
+            "battle_data_set_mul": "754.25k",
+            "core_dust_mul": "118.7"
+        },
+        {
+            "level": 715,
+            "credit": "45.94k",
+            "battle_data_set": "520.69k",
+            "core_dust": "81.92",
+            "credit_mul": "73.5k",
+            "battle_data_set_mul": "755k",
+            "core_dust_mul": "118.78"
+        },
+        {
+            "level": 716,
+            "credit": "45.98k",
+            "battle_data_set": "521.21k",
+            "core_dust": "81.98",
+            "credit_mul": "73.57k",
+            "battle_data_set_mul": "755.76k",
+            "core_dust_mul": "118.87"
+        },
+        {
+            "level": 717,
+            "credit": "46.02k",
+            "battle_data_set": "521.74k",
+            "core_dust": "82.04",
+            "credit_mul": "73.64k",
+            "battle_data_set_mul": "756.52k",
+            "core_dust_mul": "118.96"
+        },
+        {
+            "level": 718,
+            "credit": "46.06k",
+            "battle_data_set": "522.26k",
+            "core_dust": "82.1",
+            "credit_mul": "73.7k",
+            "battle_data_set_mul": "757.28k",
+            "core_dust_mul": "119.05"
+        },
+        {
+            "level": 719,
+            "credit": "46.11k",
+            "battle_data_set": "522.78k",
+            "core_dust": "82.15",
+            "credit_mul": "73.77k",
+            "battle_data_set_mul": "758.03k",
+            "core_dust_mul": "119.12"
+        },
+        {
+            "level": 720,
+            "credit": "46.15k",
+            "battle_data_set": "523.3k",
+            "core_dust": "82.21",
+            "credit_mul": "73.84k",
+            "battle_data_set_mul": "758.79k",
+            "core_dust_mul": "119.21"
+        },
+        {
+            "level": 721,
+            "credit": "46.19k",
+            "battle_data_set": "523.82k",
+            "core_dust": "82.27",
+            "credit_mul": "73.91k",
+            "battle_data_set_mul": "759.54k",
+            "core_dust_mul": "119.3"
+        },
+        {
+            "level": 722,
+            "credit": "46.23k",
+            "battle_data_set": "524.34k",
+            "core_dust": "82.33",
+            "credit_mul": "73.98k",
+            "battle_data_set_mul": "760.3k",
+            "core_dust_mul": "119.39"
+        },
+        {
+            "level": 723,
+            "credit": "46.28k",
+            "battle_data_set": "524.86k",
+            "core_dust": "82.39",
+            "credit_mul": "74.04k",
+            "battle_data_set_mul": "761.06k",
+            "core_dust_mul": "119.46"
+        },
+        {
+            "level": 724,
+            "credit": "46.32k",
+            "battle_data_set": "525.39k",
+            "core_dust": "82.45",
+            "credit_mul": "74.11k",
+            "battle_data_set_mul": "761.81k",
+            "core_dust_mul": "119.55"
+        },
+        {
+            "level": 725,
+            "credit": "46.36k",
+            "battle_data_set": "525.91k",
+            "core_dust": "82.51",
+            "credit_mul": "74.18k",
+            "battle_data_set_mul": "762.57k",
+            "core_dust_mul": "119.64"
+        },
+        {
+            "level": 726,
+            "credit": "46.4k",
+            "battle_data_set": "526.43k",
+            "core_dust": "82.57",
+            "credit_mul": "74.25k",
+            "battle_data_set_mul": "763.32k",
+            "core_dust_mul": "119.72"
+        },
+        {
+            "level": 727,
+            "credit": "46.45k",
+            "battle_data_set": "526.95k",
+            "core_dust": "82.62",
+            "credit_mul": "74.32k",
+            "battle_data_set_mul": "764.08k",
+            "core_dust_mul": "119.8"
+        },
+        {
+            "level": 728,
+            "credit": "46.49k",
+            "battle_data_set": "527.47k",
+            "core_dust": "82.68",
+            "credit_mul": "74.38k",
+            "battle_data_set_mul": "764.83k",
+            "core_dust_mul": "119.89"
+        },
+        {
+            "level": 729,
+            "credit": "46.53k",
+            "battle_data_set": "527.99k",
+            "core_dust": "82.74",
+            "credit_mul": "74.45k",
+            "battle_data_set_mul": "765.58k",
+            "core_dust_mul": "119.98"
+        },
+        {
+            "level": 730,
+            "credit": "46.57k",
+            "battle_data_set": "528.51k",
+            "core_dust": "82.8",
+            "credit_mul": "74.52k",
+            "battle_data_set_mul": "766.34k",
+            "core_dust_mul": "120.06"
+        },
+        {
+            "level": 731,
+            "credit": "46.61k",
+            "battle_data_set": "529.03k",
+            "core_dust": "82.86",
+            "credit_mul": "74.59k",
+            "battle_data_set_mul": "767.09k",
+            "core_dust_mul": "120.14"
+        },
+        {
+            "level": 732,
+            "credit": "46.66k",
+            "battle_data_set": "529.55k",
+            "core_dust": "82.92",
+            "credit_mul": "74.65k",
+            "battle_data_set_mul": "767.85k",
+            "core_dust_mul": "120.23"
+        },
+        {
+            "level": 733,
+            "credit": "46.7k",
+            "battle_data_set": "530.07k",
+            "core_dust": "82.98",
+            "credit_mul": "74.72k",
+            "battle_data_set_mul": "768.6k",
+            "core_dust_mul": "120.32"
+        },
+        {
+            "level": 734,
+            "credit": "46.74k",
+            "battle_data_set": "530.59k",
+            "core_dust": "83.03",
+            "credit_mul": "74.79k",
+            "battle_data_set_mul": "769.35k",
+            "core_dust_mul": "120.39"
+        },
+        {
+            "level": 735,
+            "credit": "46.78k",
+            "battle_data_set": "531.11k",
+            "core_dust": "83.09",
+            "credit_mul": "74.86k",
+            "battle_data_set_mul": "770.11k",
+            "core_dust_mul": "120.48"
+        },
+        {
+            "level": 736,
+            "credit": "46.83k",
+            "battle_data_set": "531.63k",
+            "core_dust": "83.15",
+            "credit_mul": "74.92k",
+            "battle_data_set_mul": "770.86k",
+            "core_dust_mul": "120.57"
+        },
+        {
+            "level": 737,
+            "credit": "46.87k",
+            "battle_data_set": "532.14k",
+            "core_dust": "83.2",
+            "credit_mul": "74.99k",
+            "battle_data_set_mul": "771.61k",
+            "core_dust_mul": "120.65"
+        },
+        {
+            "level": 738,
+            "credit": "46.91k",
+            "battle_data_set": "532.66k",
+            "core_dust": "83.26",
+            "credit_mul": "75.06k",
+            "battle_data_set_mul": "772.36k",
+            "core_dust_mul": "120.73"
+        },
+        {
+            "level": 739,
+            "credit": "46.95k",
+            "battle_data_set": "533.18k",
+            "core_dust": "83.32",
+            "credit_mul": "75.13k",
+            "battle_data_set_mul": "773.12k",
+            "core_dust_mul": "120.82"
+        },
+        {
+            "level": 740,
+            "credit": "47k",
+            "battle_data_set": "533.7k",
+            "core_dust": "83.38",
+            "credit_mul": "75.2k",
+            "battle_data_set_mul": "773.87k",
+            "core_dust_mul": "120.9"
+        },
+        {
+            "level": 741,
+            "credit": "47.04k",
+            "battle_data_set": "534.22k",
+            "core_dust": "83.44",
+            "credit_mul": "75.26k",
+            "battle_data_set_mul": "774.62k",
+            "core_dust_mul": "120.99"
+        },
+        {
+            "level": 742,
+            "credit": "47.08k",
+            "battle_data_set": "534.74k",
+            "core_dust": "83.5",
+            "credit_mul": "75.33k",
+            "battle_data_set_mul": "775.37k",
+            "core_dust_mul": "121.07"
+        },
+        {
+            "level": 743,
+            "credit": "47.12k",
+            "battle_data_set": "535.26k",
+            "core_dust": "83.55",
+            "credit_mul": "75.4k",
+            "battle_data_set_mul": "776.12k",
+            "core_dust_mul": "121.15"
+        },
+        {
+            "level": 744,
+            "credit": "47.16k",
+            "battle_data_set": "535.77k",
+            "core_dust": "83.61",
+            "credit_mul": "75.47k",
+            "battle_data_set_mul": "776.88k",
+            "core_dust_mul": "121.24"
+        },
+        {
+            "level": 745,
+            "credit": "47.21k",
+            "battle_data_set": "536.29k",
+            "core_dust": "83.67",
+            "credit_mul": "75.53k",
+            "battle_data_set_mul": "777.63k",
+            "core_dust_mul": "121.33"
+        },
+        {
+            "level": 746,
+            "credit": "47.25k",
+            "battle_data_set": "536.81k",
+            "core_dust": "83.73",
+            "credit_mul": "75.6k",
+            "battle_data_set_mul": "778.38k",
+            "core_dust_mul": "121.4"
+        },
+        {
+            "level": 747,
+            "credit": "47.29k",
+            "battle_data_set": "537.33k",
+            "core_dust": "83.79",
+            "credit_mul": "75.67k",
+            "battle_data_set_mul": "779.13k",
+            "core_dust_mul": "121.49"
+        },
+        {
+            "level": 748,
+            "credit": "47.33k",
+            "battle_data_set": "537.85k",
+            "core_dust": "83.84",
+            "credit_mul": "75.74k",
+            "battle_data_set_mul": "779.88k",
+            "core_dust_mul": "121.57"
+        },
+        {
+            "level": 749,
+            "credit": "47.38k",
+            "battle_data_set": "538.36k",
+            "core_dust": "83.9",
+            "credit_mul": "75.8k",
+            "battle_data_set_mul": "780.63k",
+            "core_dust_mul": "121.66"
+        },
+        {
+            "level": 750,
+            "credit": "47.42k",
+            "battle_data_set": "538.88k",
+            "core_dust": "83.96",
+            "credit_mul": "75.87k",
+            "battle_data_set_mul": "781.38k",
+            "core_dust_mul": "121.74"
+        },
+        {
+            "level": 751,
+            "credit": "47.46k",
+            "battle_data_set": "539.4k",
+            "core_dust": "84.01",
+            "credit_mul": "75.94k",
+            "battle_data_set_mul": "782.13k",
+            "core_dust_mul": "121.82"
+        },
+        {
+            "level": 752,
+            "credit": "47.5k",
+            "battle_data_set": "539.91k",
+            "core_dust": "84.07",
+            "credit_mul": "76.01k",
+            "battle_data_set_mul": "782.88k",
+            "core_dust_mul": "121.91"
+        },
+        {
+            "level": 753,
+            "credit": "47.54k",
+            "battle_data_set": "540.43k",
+            "core_dust": "84.13",
+            "credit_mul": "76.07k",
+            "battle_data_set_mul": "783.63k",
+            "core_dust_mul": "121.99"
+        },
+        {
+            "level": 754,
+            "credit": "47.59k",
+            "battle_data_set": "540.95k",
+            "core_dust": "84.19",
+            "credit_mul": "76.14k",
+            "battle_data_set_mul": "784.38k",
+            "core_dust_mul": "122.07"
+        },
+        {
+            "level": 755,
+            "credit": "47.63k",
+            "battle_data_set": "541.46k",
+            "core_dust": "84.25",
+            "credit_mul": "76.21k",
+            "battle_data_set_mul": "785.13k",
+            "core_dust_mul": "122.16"
+        },
+        {
+            "level": 756,
+            "credit": "47.67k",
+            "battle_data_set": "541.98k",
+            "core_dust": "84.3",
+            "credit_mul": "76.28k",
+            "battle_data_set_mul": "785.88k",
+            "core_dust_mul": "122.24"
+        },
+        {
+            "level": 757,
+            "credit": "47.71k",
+            "battle_data_set": "542.5k",
+            "core_dust": "84.36",
+            "credit_mul": "76.34k",
+            "battle_data_set_mul": "786.62k",
+            "core_dust_mul": "122.33"
+        },
+        {
+            "level": 758,
+            "credit": "47.76k",
+            "battle_data_set": "543.01k",
+            "core_dust": "84.42",
+            "credit_mul": "76.41k",
+            "battle_data_set_mul": "787.37k",
+            "core_dust_mul": "122.4"
+        },
+        {
+            "level": 759,
+            "credit": "47.8k",
+            "battle_data_set": "543.53k",
+            "core_dust": "84.48",
+            "credit_mul": "76.48k",
+            "battle_data_set_mul": "788.12k",
+            "core_dust_mul": "122.49"
+        },
+        {
+            "level": 760,
+            "credit": "47.84k",
+            "battle_data_set": "544.05k",
+            "core_dust": "84.53",
+            "credit_mul": "76.55k",
+            "battle_data_set_mul": "788.87k",
+            "core_dust_mul": "122.57"
+        },
+        {
+            "level": 761,
+            "credit": "47.88k",
+            "battle_data_set": "544.56k",
+            "core_dust": "84.59",
+            "credit_mul": "76.61k",
+            "battle_data_set_mul": "789.62k",
+            "core_dust_mul": "122.66"
+        },
+        {
+            "level": 762,
+            "credit": "47.92k",
+            "battle_data_set": "545.08k",
+            "core_dust": "84.64",
+            "credit_mul": "76.68k",
+            "battle_data_set_mul": "790.36k",
+            "core_dust_mul": "122.73"
+        },
+        {
+            "level": 763,
+            "credit": "47.97k",
+            "battle_data_set": "545.59k",
+            "core_dust": "84.7",
+            "credit_mul": "76.75k",
+            "battle_data_set_mul": "791.11k",
+            "core_dust_mul": "122.82"
+        },
+        {
+            "level": 764,
+            "credit": "48.01k",
+            "battle_data_set": "546.11k",
+            "core_dust": "84.76",
+            "credit_mul": "76.82k",
+            "battle_data_set_mul": "791.86k",
+            "core_dust_mul": "122.9"
+        },
+        {
+            "level": 765,
+            "credit": "48.05k",
+            "battle_data_set": "546.62k",
+            "core_dust": "84.82",
+            "credit_mul": "76.88k",
+            "battle_data_set_mul": "792.61k",
+            "core_dust_mul": "122.99"
+        },
+        {
+            "level": 766,
+            "credit": "48.09k",
+            "battle_data_set": "547.14k",
+            "core_dust": "84.87",
+            "credit_mul": "76.95k",
+            "battle_data_set_mul": "793.35k",
+            "core_dust_mul": "123.07"
+        },
+        {
+            "level": 767,
+            "credit": "48.13k",
+            "battle_data_set": "547.65k",
+            "core_dust": "84.93",
+            "credit_mul": "77.02k",
+            "battle_data_set_mul": "794.1k",
+            "core_dust_mul": "123.15"
+        },
+        {
+            "level": 768,
+            "credit": "48.18k",
+            "battle_data_set": "548.17k",
+            "core_dust": "84.99",
+            "credit_mul": "77.09k",
+            "battle_data_set_mul": "794.85k",
+            "core_dust_mul": "123.23"
+        },
+        {
+            "level": 769,
+            "credit": "48.22k",
+            "battle_data_set": "548.68k",
+            "core_dust": "85.05",
+            "credit_mul": "77.15k",
+            "battle_data_set_mul": "795.59k",
+            "core_dust_mul": "123.32"
+        },
+        {
+            "level": 770,
+            "credit": "48.26k",
+            "battle_data_set": "549.2k",
+            "core_dust": "85.1",
+            "credit_mul": "77.22k",
+            "battle_data_set_mul": "796.34k",
+            "core_dust_mul": "123.4"
+        },
+        {
+            "level": 771,
+            "credit": "48.3k",
+            "battle_data_set": "549.71k",
+            "core_dust": "85.16",
+            "credit_mul": "77.29k",
+            "battle_data_set_mul": "797.08k",
+            "core_dust_mul": "123.48"
+        },
+        {
+            "level": 772,
+            "credit": "48.35k",
+            "battle_data_set": "550.23k",
+            "core_dust": "85.21",
+            "credit_mul": "77.36k",
+            "battle_data_set_mul": "797.83k",
+            "core_dust_mul": "123.56"
+        },
+        {
+            "level": 773,
+            "credit": "48.39k",
+            "battle_data_set": "550.74k",
+            "core_dust": "85.27",
+            "credit_mul": "77.42k",
+            "battle_data_set_mul": "798.58k",
+            "core_dust_mul": "123.65"
+        },
+        {
+            "level": 774,
+            "credit": "48.43k",
+            "battle_data_set": "551.25k",
+            "core_dust": "85.33",
+            "credit_mul": "77.49k",
+            "battle_data_set_mul": "799.32k",
+            "core_dust_mul": "123.73"
+        },
+        {
+            "level": 775,
+            "credit": "48.47k",
+            "battle_data_set": "551.77k",
+            "core_dust": "85.39",
+            "credit_mul": "77.56k",
+            "battle_data_set_mul": "800.07k",
+            "core_dust_mul": "123.81"
+        },
+        {
+            "level": 776,
+            "credit": "48.51k",
+            "battle_data_set": "552.28k",
+            "core_dust": "85.44",
+            "credit_mul": "77.63k",
+            "battle_data_set_mul": "800.81k",
+            "core_dust_mul": "123.89"
+        },
+        {
+            "level": 777,
+            "credit": "48.56k",
+            "battle_data_set": "552.8k",
+            "core_dust": "85.5",
+            "credit_mul": "77.69k",
+            "battle_data_set_mul": "801.56k",
+            "core_dust_mul": "123.98"
+        },
+        {
+            "level": 778,
+            "credit": "48.6k",
+            "battle_data_set": "553.31k",
+            "core_dust": "85.56",
+            "credit_mul": "77.76k",
+            "battle_data_set_mul": "802.3k",
+            "core_dust_mul": "124.06"
+        },
+        {
+            "level": 779,
+            "credit": "48.64k",
+            "battle_data_set": "553.82k",
+            "core_dust": "85.61",
+            "credit_mul": "77.83k",
+            "battle_data_set_mul": "803.05k",
+            "core_dust_mul": "124.14"
+        },
+        {
+            "level": 780,
+            "credit": "48.68k",
+            "battle_data_set": "554.34k",
+            "core_dust": "85.67",
+            "credit_mul": "77.89k",
+            "battle_data_set_mul": "803.79k",
+            "core_dust_mul": "124.22"
+        },
+        {
+            "level": 781,
+            "credit": "48.72k",
+            "battle_data_set": "554.85k",
+            "core_dust": "85.72",
+            "credit_mul": "77.96k",
+            "battle_data_set_mul": "804.53k",
+            "core_dust_mul": "124.3"
+        },
+        {
+            "level": 782,
+            "credit": "48.77k",
+            "battle_data_set": "555.36k",
+            "core_dust": "85.78",
+            "credit_mul": "78.03k",
+            "battle_data_set_mul": "805.28k",
+            "core_dust_mul": "124.39"
+        },
+        {
+            "level": 783,
+            "credit": "48.81k",
+            "battle_data_set": "555.88k",
+            "core_dust": "85.84",
+            "credit_mul": "78.1k",
+            "battle_data_set_mul": "806.02k",
+            "core_dust_mul": "124.47"
+        },
+        {
+            "level": 784,
+            "credit": "48.85k",
+            "battle_data_set": "556.39k",
+            "core_dust": "85.9",
+            "credit_mul": "78.16k",
+            "battle_data_set_mul": "806.76k",
+            "core_dust_mul": "124.55"
+        },
+        {
+            "level": 785,
+            "credit": "48.89k",
+            "battle_data_set": "556.9k",
+            "core_dust": "85.95",
+            "credit_mul": "78.23k",
+            "battle_data_set_mul": "807.51k",
+            "core_dust_mul": "124.63"
+        },
+        {
+            "level": 786,
+            "credit": "48.93k",
+            "battle_data_set": "557.41k",
+            "core_dust": "86.01",
+            "credit_mul": "78.3k",
+            "battle_data_set_mul": "808.25k",
+            "core_dust_mul": "124.71"
+        },
+        {
+            "level": 787,
+            "credit": "48.98k",
+            "battle_data_set": "557.93k",
+            "core_dust": "86.07",
+            "credit_mul": "78.37k",
+            "battle_data_set_mul": "808.99k",
+            "core_dust_mul": "124.8"
+        },
+        {
+            "level": 788,
+            "credit": "49.02k",
+            "battle_data_set": "558.44k",
+            "core_dust": "86.12",
+            "credit_mul": "78.43k",
+            "battle_data_set_mul": "809.74k",
+            "core_dust_mul": "124.87"
+        },
+        {
+            "level": 789,
+            "credit": "49.06k",
+            "battle_data_set": "558.95k",
+            "core_dust": "86.17",
+            "credit_mul": "78.5k",
+            "battle_data_set_mul": "810.48k",
+            "core_dust_mul": "124.95"
+        },
+        {
+            "level": 790,
+            "credit": "49.1k",
+            "battle_data_set": "559.46k",
+            "core_dust": "86.23",
+            "credit_mul": "78.57k",
+            "battle_data_set_mul": "811.22k",
+            "core_dust_mul": "125.04"
+        },
+        {
+            "level": 791,
+            "credit": "49.14k",
+            "battle_data_set": "559.97k",
+            "core_dust": "86.29",
+            "credit_mul": "78.63k",
+            "battle_data_set_mul": "811.96k",
+            "core_dust_mul": "125.12"
+        },
+        {
+            "level": 792,
+            "credit": "49.19k",
+            "battle_data_set": "560.49k",
+            "core_dust": "86.35",
+            "credit_mul": "78.7k",
+            "battle_data_set_mul": "812.71k",
+            "core_dust_mul": "125.21"
+        },
+        {
+            "level": 793,
+            "credit": "49.23k",
+            "battle_data_set": "561k",
+            "core_dust": "86.4",
+            "credit_mul": "78.77k",
+            "battle_data_set_mul": "813.45k",
+            "core_dust_mul": "125.28"
+        },
+        {
+            "level": 794,
+            "credit": "49.27k",
+            "battle_data_set": "561.51k",
+            "core_dust": "86.46",
+            "credit_mul": "78.84k",
+            "battle_data_set_mul": "814.19k",
+            "core_dust_mul": "125.36"
+        },
+        {
+            "level": 795,
+            "credit": "49.31k",
+            "battle_data_set": "562.02k",
+            "core_dust": "86.52",
+            "credit_mul": "78.9k",
+            "battle_data_set_mul": "814.93k",
+            "core_dust_mul": "125.45"
+        },
+        {
+            "level": 796,
+            "credit": "49.35k",
+            "battle_data_set": "562.53k",
+            "core_dust": "86.57",
+            "credit_mul": "78.97k",
+            "battle_data_set_mul": "815.67k",
+            "core_dust_mul": "125.53"
+        },
+        {
+            "level": 797,
+            "credit": "49.4k",
+            "battle_data_set": "563.04k",
+            "core_dust": "86.62",
+            "credit_mul": "79.04k",
+            "battle_data_set_mul": "816.41k",
+            "core_dust_mul": "125.61"
+        },
+        {
+            "level": 798,
+            "credit": "49.44k",
+            "battle_data_set": "563.55k",
+            "core_dust": "86.68",
+            "credit_mul": "79.1k",
+            "battle_data_set_mul": "817.15k",
+            "core_dust_mul": "125.69"
+        },
+        {
+            "level": 799,
+            "credit": "49.48k",
+            "battle_data_set": "564.06k",
+            "core_dust": "86.74",
+            "credit_mul": "79.17k",
+            "battle_data_set_mul": "817.89k",
+            "core_dust_mul": "125.77"
+        },
+        {
+            "level": 800,
+            "credit": "49.52k",
+            "battle_data_set": "564.57k",
+            "core_dust": "86.79",
+            "credit_mul": "79.24k",
+            "battle_data_set_mul": "818.63k",
+            "core_dust_mul": "125.85"
         }
     ]
 }
