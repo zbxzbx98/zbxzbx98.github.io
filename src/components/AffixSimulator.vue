@@ -19,8 +19,8 @@
       <div class="panel">
         <h3 class="panel-title">目标词条（{{ mode === 'single' ? '单装备' : '四件装备合计' }}）</h3>
         <div class="target-chips">
-          <span v-for="t in targets" :key="t.effect" class="target-chip">
-            {{ EFFECT_NAMES[t.effect] }} ≥ 阶数{{ t.tier }}
+          <span v-for="t in targets" :key="t.effects.join('')" class="target-chip">
+            {{ targetLabel(t) }} ≥ 阶数{{ t.tier }}
           </span>
         </div>
         <div class="sim-stats">
@@ -134,15 +134,16 @@
         </div>
 
         <h3 class="panel-title custom-target-title">自定义目标词条（{{ mode === 'single' ? '最多3个' : '最多5个，四件合计' }}）</h3>
+        <p class="panel-note">同一行下拉可多选词条并合并为同一目标：抽中其中任意一个（达到阶数）即算该目标达标（如 暴击伤害+暴击率 11阶 = bsbj11）。不同行目标需同时满足；所有词条全局不可重复。</p>
         <div class="slot-list">
           <div class="slot-row" v-for="(t, i) in customTargets" :key="i">
             <span class="slot-label">目标{{ i + 1 }}</span>
-            <el-select v-model="t.effect" style="width: 160px;" placeholder="选择词条">
+            <el-select v-model="t.effects" multiple style="width: 210px;" placeholder="选择词条（可多选）">
               <el-option v-for="e in targetEffectOptions(customTargets, i)" :key="e.code" :label="e.name" :value="e.code" />
             </el-select>
-            <el-select v-model="t.tier" style="width: 150px;" :disabled="!t.effect" placeholder="选择阶数">
+            <el-select v-model="t.tier" style="width: 150px;" :disabled="!t.effects || !t.effects.length" placeholder="选择阶数">
               <template v-if="mode === 'single'">
-                <el-option v-for="opt in tierOptions(t.effect)" :key="opt.value" :label="opt.label" :value="opt.value" />
+                <el-option v-for="opt in tierOptions(t.effects)" :key="opt.value" :label="opt.label" :value="opt.value" />
               </template>
               <template v-else>
                 <el-option v-for="n in 60" :key="n" :label="'阶数' + n" :value="n" />
@@ -318,7 +319,8 @@ const LOCK_KEY = [20, 30]
 const gearNames = ['一', '二', '三', '四']
 
 const blankSlot = () => ({ effect: 'wd', tier: 0 })
-const blankTarget = () => ({ effect: '', tier: 13 })
+// 目标：effects 为多选词条代号数组（同一行多选合并为同一目标）
+const blankTarget = () => ({ effects: [], tier: 13 })
 const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()], locks: {} })
 
 const effectOptions = [
@@ -420,18 +422,37 @@ function generateTargets(maxCount, maxTier) {
   const count = 1 + Math.floor(Math.random() * maxCount)
   const effects = sampleTargetEffects(count)
 
+  // 每个目标有 20% 概率再与一个随机未使用词条合并成双词条目标；
+  // 若词条已被前面的目标用完（最多5目标时可能发生），则不再合并。
+  const used = new Set(effects)
+  const partnerFor = new Map()
+  for (const e of effects) {
+    if (Math.random() < 0.2) {
+      const avail = EFFECT_WEIGHTS.map(x => x.code).filter(c => !used.has(c))
+      if (avail.length) {
+        const partner = avail[Math.floor(Math.random() * avail.length)]
+        used.add(partner)
+        partnerFor.set(e, partner)
+      }
+    }
+  }
+  const build = (e, tier) => {
+    const partner = partnerFor.get(e)
+    return partner ? { effects: [e, partner], tier } : { effects: [e], tier }
+  }
+
   if (maxTier === 15) {
-    return effects.map(e => ({ effect: e, tier: 5 + Math.floor(Math.random() * 11) }))
+    return effects.map(e => build(e, 5 + Math.floor(Math.random() * 11)))
   }
 
   // 角色模式：1..60，且满足 单词条≤60、总和≤180、Σ⌈阶数/15⌉≤12
   for (let attempt = 0; attempt < 200; attempt++) {
     const tiers = effects.map(() => 5 + Math.floor(Math.random() * 56))
-    const list = effects.map((e, i) => ({ effect: e, tier: tiers[i] }))
+    const list = effects.map((e, i) => build(e, tiers[i]))
     if (isCharacterTargetFeasible(list)) return list
   }
   // 兜底：5..30 必定合法（5件×30=150≤180，⌈30/15⌉×5=10≤12）
-  return effects.map(e => ({ effect: e, tier: 5 + Math.floor(Math.random() * 26) }))
+  return effects.map(e => build(e, 5 + Math.floor(Math.random() * 26)))
 }
 
 // 角色目标可行性：单词条 1..60、总阶数 ≤180、各词条阶数÷15向上取整之和 ≤12
@@ -444,11 +465,14 @@ function isCharacterTargetFeasible(list) {
 
 /* ==================== 自定义模拟 ==================== */
 
+// effect 可以是单个代号，也可以是合并目标的多选代号数组
 function tierOptions(effect) {
-  if (!effect || effect === 'wd') return []
-  return TIER_VALUES[effect].map((v, idx) => ({
+  const codes = Array.isArray(effect) ? effect : (effect ? [effect] : [])
+  if (!codes.length || codes[0] === 'wd') return []
+  const merged = codes.length > 1
+  return TIER_VALUES[codes[0]].map((v, idx) => ({
     value: idx + 1,
-    label: `阶数${idx + 1}（${v}）`,
+    label: merged ? `阶数${idx + 1}` : `阶数${idx + 1}（${v}）`,
   }))
 }
 
@@ -460,9 +484,22 @@ function gearEffectOptions(gear, si) {
   return effectOptions.filter(e => !used.includes(e.code))
 }
 
+// 其他目标行已选用的词条不可再选（全局不允许重复）
 function targetEffectOptions(list, i) {
-  const used = list.map((t, k) => (k === i ? '' : t.effect)).filter(Boolean)
+  const used = []
+  for (let k = 0; k < list.length; k++) {
+    if (k === i) continue
+    const t = list[k]
+    if (t.effects && t.effects.length) used.push(...t.effects)
+  }
   return targetEffectOptionsList.filter(e => !used.includes(e.code))
+}
+
+// 目标展示名：合并目标显示为 "A或B"
+function targetLabel(t) {
+  const codes = Array.isArray(t.effects) && t.effects.length ? t.effects : (t.effect ? [t.effect] : [])
+  if (!codes.length) return '（未选择）'
+  return codes.map(c => EFFECT_NAMES[c]).join('或')
 }
 
 function onCustomSlotChange(gear, si) {
@@ -524,17 +561,19 @@ function validateCustom() {
     if (lockedCount > 2) return `每件装备最多锁定 2 个栏位`
   }
 
-  const list = customTargets.value.filter(t => t.effect)
+  const list = customTargets.value.filter(t => t.effects && t.effects.length)
   if (!list.length) return '请至少选择 1 个目标词条'
   const maxCount = mode.value === 'single' ? 3 : 5
   if (list.length > maxCount) return `目标词条最多 ${maxCount} 个`
   const seenT = new Set()
   for (const t of list) {
-    if (seenT.has(t.effect)) return '目标词条不能重复'
-    seenT.add(t.effect)
+    for (const code of t.effects) {
+      if (seenT.has(code)) return `词条「${EFFECT_NAMES[code]}」在多个目标中重复，所有词条不允许重复`
+      seenT.add(code)
+    }
     const maxTier = mode.value === 'single' ? 15 : 60
     if (!Number.isInteger(t.tier) || t.tier < 1 || t.tier > maxTier) {
-      return `目标词条「${EFFECT_NAMES[t.effect]}」的阶数需在 1~${maxTier}`
+      return `目标词条「${targetLabel(t)}」的阶数需在 1~${maxTier}`
     }
   }
   if (mode.value === 'character' && !isCharacterTargetFeasible(list)) {
@@ -548,13 +587,13 @@ function validateCustom() {
 function goalMetFor(gearList, targetList) {
   if (mode.value === 'single') {
     const slots = gearList[0].slots
-    return targetList.every(t => slots.some(s => s.effect === t.effect && s.tier >= t.tier))
+    return targetList.every(t => slots.some(s => t.effects.includes(s.effect) && s.tier >= t.tier))
   }
   return targetList.every(t => {
     let sum = 0
     for (const gear of gearList) {
       for (const s of gear.slots) {
-        if (s.effect === t.effect) sum += s.tier
+        if (t.effects.includes(s.effect)) sum += s.tier
       }
     }
     return sum >= t.tier
@@ -771,7 +810,7 @@ async function beginGame(gearList, targetList) {
   targets.value = targetList
 
   const current = buildCurrent()
-  const targetStr = targets.value.map(t => t.effect + t.tier).join(',')
+  const targetStr = targets.value.map(t => t.effects.join('') + t.tier).join(',')
   expectLoading.value = true
   const { id, promise } = computeExpectation(current, targetStr)
   try {
@@ -824,7 +863,7 @@ function startCustomSimulation() {
   const gearList = mode.value === 'single'
     ? [cloneCustomGear(customSingleGear.value)]
     : customCharGears.value.map(cloneCustomGear)
-  const targetList = customTargets.value.filter(t => t.effect).map(t => ({ ...t }))
+  const targetList = customTargets.value.filter(t => t.effects && t.effects.length).map(t => ({ effects: [...t.effects], tier: t.tier }))
   beginGame(gearList, targetList)
 }
 
