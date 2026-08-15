@@ -104,29 +104,43 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     : [];
 
   const targets = [];
-  const seenTarget = new Set();
+  const seenEffect = new Set();
+
+  // 词条 -> 目标编号；合并目标的所有成员映射到同一目标
+  const targetIndexByEffect = new Map();
 
   for (const tok of targetTokens) {
-    const mm = tok.match(/^(uy|gj|bs|fy|xl|xs|bj|mz|dr)(\d+)$/);
+    /**
+     * 支持合并目标（同一行多选）：
+     *   uy13          单个词条
+     *   bsbj22        暴击伤害 或 暴击率，角色总阶数 >= 22
+     */
+    const mm = tok.match(/^((?:uy|gj|bs|fy|xl|xs|bj|mz|dr)+)(\d+)$/);
     if (!mm) throw new Error('非法目标词条: ' + tok);
 
-    const name = mm[1];
+    const names = mm[1].match(/uy|gj|bs|fy|xl|xs|bj|mz|dr/g);
     const req = Number(mm[2]);
 
     if (!Number.isInteger(req) || req < 1 || req > 60) {
-      throw new Error(`目标 ${name} 的角色总阶数必须为 1..60`);
+      throw new Error(`目标 ${names.join('')} 的角色总阶数必须为 1..60`);
     }
-    if (seenTarget.has(name)) {
-      throw new Error('目标词条重复: ' + name);
-    }
-    seenTarget.add(name);
 
-    const eidx = EFFECT_INDEX.get(name);
+    // 所有词条不允许重复（含合并目标内部的成员）
+    const dup = names.find(n => seenEffect.has(n));
+    if (dup !== undefined) throw new Error('目标词条重复: ' + dup);
+    for (const n of names) seenEffect.add(n);
+
+    const weight = names.reduce((s, n) => s + EFFECTS[EFFECT_INDEX.get(n)][1], 0);
+    const j = targets.length;
+    for (const n of names) targetIndexByEffect.set(EFFECT_INDEX.get(n), j);
+
     targets.push({
-      name,
+      // 展示名/子目标代号：成员代号直接拼接（如 bsbj）
+      name: names.join(''),
+      names,
       req,
-      eidx,
-      weight: EFFECTS[eidx][1],
+      eidx: EFFECT_INDEX.get(names[0]),
+      weight,
       cap: Math.min(15, req),
       tierBuckets: null,
     });
@@ -141,7 +155,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   }
 
   const m = targets.length;
-  const targetIndexByEffect = new Map(targets.map((t, j) => [t.eidx, j]));
+  // targetIndexByEffect 已在解析目标时由合并目标的所有成员共同构建
 
   // 将阶数分布压缩成对目标总和真正有意义的贡献值。
   // 若某目标总需求 <= 15，则单槽贡献超过需求的部分没有额外价值，可以合并。
@@ -275,6 +289,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     }
 
     const seenEffect = new Set();
+    // 同一装备内已出现的目标组（合并目标只允许一个成员）
+    const seenTargetSlot = new Set();
     const slots = [];
     let lock = 0;
 
@@ -306,6 +322,13 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       const tj = targetIndexByEffect.get(eidx);
 
       if (tj !== undefined) {
+        // 同一件装备内，同一合并目标（如 bs 或 bj）只能出现一个成员
+        if (seenTargetSlot.has(tj)) {
+          throw new Error(
+            `同一件装备内不能同时出现同一目标组的多个词条（如 bs 和 bj 同属一个合并目标）: ${name}`
+          );
+        }
+        seenTargetSlot.add(tj);
         const contribution = Math.min(tier, targets[tj].cap);
         slots.push(targetCode(tj, contribution));
       } else {
@@ -512,7 +535,13 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
     const curCnt = j => A.reduce((a, row) => a + (row[j] ? 1 : 0), 0);
     const proxyCost = (j, k) => {
-      const C = targets[j].weight === 0.10 ? COST10 : COST12;
+      const w = targets[j].weight;
+      let C = COST10;
+      if (w === 0.12) C = COST12;
+      else if (w !== 0.10) {
+        // 合并目标（权重 > 0.12）：期望次数约与权重成反比，按比例缩放
+        C = COST10.map(c => c * 0.10 / w);
+      }
       return k * C[Math.ceil(targets[j].req / k) - 1];
     };
 

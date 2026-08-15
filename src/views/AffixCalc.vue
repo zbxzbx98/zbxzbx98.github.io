@@ -42,15 +42,15 @@
 
           <div class="panel">
             <h2 class="panel-title">② 目标词条（最多 3 个，不可重复）</h2>
-            <p class="panel-note">期望阶数表示获得该阶及以上的词条即可。</p>
+            <p class="panel-note">同一行下拉可多选词条并合并为同一目标：抽中其中任意一个（达到期望阶数）即算该目标达标，等价于把它们的概率权重合并（如 暴击伤害+暴击率 11 阶 = bsbj11）。不同行的目标仍需同时满足；所有词条全局不可重复。</p>
             <div class="slot-list">
               <div class="slot-row" v-for="(t, i) in singleTargets" :key="i">
                 <span class="slot-label">目标{{ i + 1 }}</span>
-                <el-select v-model="t.effect" style="width: 190px" placeholder="选择词条">
+                <el-select v-model="t.effects" multiple style="width: 220px" placeholder="选择词条（可多选）">
                   <el-option v-for="e in availableEffects(singleTargets, i)" :key="e.code" :label="e.name" :value="e.code" />
                 </el-select>
-                <el-select v-model="t.tier" style="width: 170px" :disabled="!t.effect" placeholder="选择阶数">
-                  <el-option v-for="tier in tierOptions(t.effect)" :key="tier.value" :label="tier.label" :value="tier.value" />
+                <el-select v-model="t.tier" style="width: 170px" :disabled="!t.effects || !t.effects.length" placeholder="选择阶数">
+                  <el-option v-for="tier in tierOptions(t.effects)" :key="tier.value" :label="tier.label" :value="tier.value" />
                 </el-select>
                 <el-button v-if="singleTargets.length > 1" text type="danger" @click="removeTarget(singleTargets, i)">删除</el-button>
               </div>
@@ -232,13 +232,14 @@
 
           <div class="panel">
             <h2 class="panel-title">② 角色目标词条（最多 5 个，四件装备合计）</h2>
+            <p class="panel-note">同一行下拉可多选词条并合并为同一目标：四件装备上任意词条达到该目标即累计贡献阶数（如 暴击伤害+暴击率 总 22 阶 = bsbj22）。不同行的目标仍需同时满足；所有词条全局不可重复。</p>
             <div class="slot-list">
               <div class="slot-row" v-for="(t, i) in characterTargets" :key="i">
                 <span class="slot-label">目标{{ i + 1 }}</span>
-                <el-select v-model="t.effect" style="width: 190px" placeholder="选择词条">
+                <el-select v-model="t.effects" multiple style="width: 220px" placeholder="选择词条（可多选）">
                   <el-option v-for="e in availableEffects(characterTargets, i)" :key="e.code" :label="e.name" :value="e.code" />
                 </el-select>
-                <el-select v-model="t.tier" style="width: 170px" :disabled="!t.effect" placeholder="选择总阶数">
+                <el-select v-model="t.tier" style="width: 170px" :disabled="!t.effects || !t.effects.length" placeholder="选择总阶数">
                   <el-option v-for="n in 60" :key="n" :label="`阶数${n}`" :value="n" />
                 </el-select>
                 <el-button v-if="characterTargets.length > 1" text type="danger" @click="removeTarget(characterTargets, i)">删除</el-button>
@@ -248,7 +249,7 @@
               <el-button color="#1fa2ff" plain :disabled="characterTargets.length >= 5" @click="addTarget(characterTargets, 5)">+ 添加目标词条</el-button>
             </div>
             <div class="rule-note">
-              校验规则：单个词条总阶数 ≤ 60；全部词条总阶数 ≤ 180；各词条阶数 ÷15 向上取整后相加 ≤ 12（即四件装备共 12 栏）。
+              校验规则：单个目标（含合并词条）总阶数 ≤ 60；全部目标总阶数 ≤ 180；各目标阶数 ÷15 向上取整后相加 ≤ 12（即四件装备共 12 栏）。
             </div>
             <div class="algorithm-note">
               算法说明：角色版把总目标分解到四件装备，分别用单装备精确求解器计算，总期望为各装备期望之和，结果接近全局最优但为近似策略，供参考。
@@ -485,6 +486,11 @@ const EFFECT_CN = {
 function translateCodes(text) {
   if (typeof text !== 'string') return text
   let s = text
+  // 合并目标形式：多个代号直接拼接 + 阶数，如 bsbj11 / 2bsbj13
+  s = s.replace(/((?:uy|gj|bs|fy|xl|xs|bj|mz|dr){2,})(\d+)/g, (_, codes, num) => {
+    const names = codes.match(/uy|gj|bs|fy|xl|xs|bj|mz|dr/g).map(c => EFFECT_CN[c])
+    return names.join('或') + num
+  })
   for (const [code, cn] of Object.entries(EFFECT_CN)) {
     // 0uy11 / 1gj13 形式（锁定状态 + 代号 + 阶数）
     s = s.replace(new RegExp('([01])' + code + '(\\d+)', 'g'), '$1' + cn + '$2')
@@ -517,7 +523,8 @@ const activeTab = ref('single')
 
 const blankSlot = () => ({ effect: 'wd', tier: 0, locked: false })
 const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()] })
-const blankTarget = () => ({ effect: '', tier: 13 })
+// 目标：effects 为多选词条代号数组（同一行多选合并为同一目标）
+const blankTarget = () => ({ effects: [], tier: 13 })
 
 const singleGear = ref(blankGear())
 const characterGears = ref([blankGear(), blankGear(), blankGear(), blankGear()])
@@ -563,18 +570,25 @@ const effectOptions = [
   ...EFFECTS,
 ]
 
+// effect 可以是单个代号，也可以是合并目标的多选代号数组
 function tierOptions(effect) {
-  if (!effect || effect === 'wd') return []
-  return TIER_VALUES[effect].map((v, idx) => ({
+  const codes = Array.isArray(effect) ? effect : (effect ? [effect] : [])
+  if (!codes.length || codes[0] === 'wd') return []
+  const merged = codes.length > 1
+  return TIER_VALUES[codes[0]].map((v, idx) => ({
     value: idx + 1,
-    label: `阶数${idx + 1}（${v}）`,
+    label: merged ? `阶数${idx + 1}` : `阶数${idx + 1}（${v}）`,
   }))
 }
 
+// 其他目标行已选用的词条不可再选（全局不允许重复）
 function availableEffects(targets, index) {
-  const taken = targets
-    .map((t, i) => (i === index ? '' : t.effect))
-    .filter(Boolean)
+  const taken = []
+  for (let i = 0; i < targets.length; i++) {
+    if (i === index) continue
+    const t = targets[i]
+    if (t.effects && t.effects.length) taken.push(...t.effects)
+  }
   return EFFECTS.filter(e => !taken.includes(e.code))
 }
 
@@ -621,19 +635,21 @@ function gearToken(gear) {
   return gear.slots.map(slotToken).join(',')
 }
 
+// 目标 token：多选词条代号直接拼接 + 阶数，如 bsbj11
 function targetToken(t) {
-  return `${t.effect}${t.tier}`
+  if (!t.effects || !t.effects.length) return ''
+  return `${t.effects.join('')}${t.tier}`
 }
 
 const singleCurrentPreview = computed(() => gearToken(singleGear.value))
 const singleTargetPreview = computed(() =>
-  singleTargets.value.filter(t => t.effect).map(targetToken).join(',')
+  singleTargets.value.filter(t => t.effects && t.effects.length).map(targetToken).join(',')
 )
 const characterCurrentLines = computed(() =>
   characterGears.value.map(gearToken)
 )
 const characterTargetPreview = computed(() =>
-  characterTargets.value.filter(t => t.effect).map(targetToken).join(',')
+  characterTargets.value.filter(t => t.effects && t.effects.length).map(targetToken).join(',')
 )
 
 /* ==================== 校验 ==================== */
@@ -662,18 +678,21 @@ function validateCharacter() {
 }
 
 function validateTargets(targets, max, maxTier) {
-  const list = targets.filter(t => t.effect)
+  const list = targets.filter(t => t.effects && t.effects.length)
   if (!list.length) return '请至少选择 1 个目标词条。'
   if (list.length > max) return `目标词条最多允许选择 ${max} 个。`
 
   const seen = new Set()
   for (const t of list) {
-    if (seen.has(t.effect)) {
-      return `目标词条「${EFFECT_NAME[t.effect]}」重复，请选择不重复的词条。`
+    // 同一行内不应有重复（el-select 已防），全局不允许重复
+    for (const code of t.effects) {
+      if (seen.has(code)) {
+        return `词条「${EFFECT_NAME[code]}」在多个目标中重复，所有词条不允许重复。`
+      }
+      seen.add(code)
     }
-    seen.add(t.effect)
     if (!Number.isInteger(t.tier) || t.tier < 1 || t.tier > maxTier) {
-      return `目标词条「${EFFECT_NAME[t.effect]}」的阶数需在 1~${maxTier} 之间。`
+      return `目标词条「${t.effects.map(c => EFFECT_NAME[c]).join('或')}」的阶数需在 1~${maxTier} 之间。`
     }
   }
 
