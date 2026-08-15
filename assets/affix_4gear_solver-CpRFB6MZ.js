@@ -83,6 +83,18 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   const maxTransitionsPerAction = options.maxTransitionsPerAction ?? 300000;
   const progress = typeof options.onProgress === 'function' ? options.onProgress : null;
 
+  /**
+   * 秘钥使用概率阈值 p（0~1，默认 0.1）。
+   *
+   * 秘钥策略下，只有当本次洗练有超过 p 的概率
+   * 到达一个“更优”的状态时才允许使用秘钥锁；
+   * 否则该动作视为不可用，直接使用石头洗练。
+   */
+  const keyP =
+    typeof options.p === 'number' && options.p >= 0 && options.p <= 1
+      ? options.p
+      : 0.1;
+
   /* ========================================================
    * 1. 解析目标
    * ======================================================== */
@@ -606,6 +618,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
           epsilon: options.epsilon ?? 1e-9,
           maxIterations: options.maxIterations ?? 10000,
           digits: digitsOpt,
+          // 秘钥使用概率阈值透传给单装备求解器
+          p: options.p ?? 0.1,
         });
         gearResults[g] = r;
         const mm = String(r.cost).match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/);
@@ -876,16 +890,16 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       const added = popcount(newMask);
       const totalProtected = popcount(protect);
 
-      let stoneCost = WASH_STONE[totalProtected];
-      let keyCost = 0;
+      // 石头锁变体：新增锁用永久石头锁，始终可用
+      let stoneV = WASH_STONE[totalProtected];
+      // 秘钥锁变体：新增锁用一次性秘钥锁，需满足秘钥阈值 p
+      let keyV = 0;
 
       for (let k = 0; k < added; k++) {
         const before = retained + k;
-        if (mode === 'stone') stoneCost += LOCK_STONE[before];
-        else keyCost += LOCK_KEY[before];
+        stoneV += LOCK_STONE[before];
+        keyV += LOCK_KEY[before];
       }
-
-      const nextLock = mode === 'stone' ? protect : keepPermanent;
 
       for (const wash of ['xg', 'sz']) {
         if (wash === 'sz') {
@@ -913,26 +927,52 @@ function solveCharacter(currentStr, targetStr, options = {}) {
           }
         }
 
-        const localDist = wash === 'xg'
-          ? xgOutcomeDistribution(localId, protect, nextLock)
-          : szOutcomeDistribution(localId, protect, nextLock);
+        // 石头锁动作（永久锁，洗练后锁保留）
+        const stoneDist = wash === 'xg'
+          ? xgOutcomeDistribution(localId, protect, protect)
+          : szOutcomeDistribution(localId, protect, protect);
 
         // 若100%回到同一个局部状态，则这个动作只消耗资源，没有任何价值。
         if (
-          localDist.length === 1 &&
-          localDist[0].id === localId &&
-          approxEq(localDist[0].p, 1, 1e-14)
+          !(
+            stoneDist.length === 1 &&
+            stoneDist[0].id === localId &&
+            approxEq(stoneDist[0].p, 1, 1e-14)
+          )
         ) {
-          continue;
+          result.push({
+            protect,
+            wash,
+            stoneCost: stoneV,
+            keyCost: 0,
+            localDist: stoneDist,
+            useKey: false,
+          });
         }
 
-        result.push({
-          protect,
-          wash,
-          stoneCost,
-          keyCost,
-          localDist,
-        });
+        // 秘钥锁动作（一次性锁，洗练后锁自动解除）
+        if (mode === 'key' && added > 0) {
+          const keyDist = wash === 'xg'
+            ? xgOutcomeDistribution(localId, protect, keepPermanent)
+            : szOutcomeDistribution(localId, protect, keepPermanent);
+
+          if (
+            !(
+              keyDist.length === 1 &&
+              keyDist[0].id === localId &&
+              approxEq(keyDist[0].p, 1, 1e-14)
+            )
+          ) {
+            result.push({
+              protect,
+              wash,
+              stoneCost: WASH_STONE[totalProtected],
+              keyCost: keyV,
+              localDist: keyDist,
+              useKey: true,
+            });
+          }
+        }
       }
     }
 
@@ -1084,6 +1124,22 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         let bestK = Infinity;
 
         for (const a of node.actions) {
+          /**
+           * 秘钥阈值过滤：
+           *
+           * 秘钥模式下，仅当本次洗练有超过 p 的概率
+           * 到达更优状态的动作才允许使用秘钥；
+           * 否则该动作不可用（回退到石头锁动作）。
+           */
+          if (useKeys && a.keyCost > 0) {
+            const tol = tieEps * Math.max(1, Math.abs(vs[sid]));
+            let pImp = 0;
+            for (const tr of a.trans) {
+              if (tr.id !== sid && vs[tr.id] < vs[sid] - tol) pImp += tr.p;
+            }
+            if (pImp <= keyP) continue;
+          }
+
           let pSelf = 0;
           let numS = a.stoneCost;
           let numK = a.keyCost;
@@ -1177,6 +1233,16 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     let numS = la.stoneCost;
     let numK = la.keyCost;
 
+    // 与 solveGraph 相同的秘钥阈值过滤
+    if (useKeys && la.keyCost > 0) {
+      const tol = tieEps * Math.max(1, Math.abs(values.vs[sid]));
+      let pImp = 0;
+      for (const [nid, p] of agg) {
+        if (nid !== sid && values.vs[nid] < values.vs[sid] - tol) pImp += p;
+      }
+      if (pImp <= keyP) return null;
+    }
+
     for (const [nid, p] of agg) {
       if (nid === sid) {
         pSelf += p;
@@ -1209,9 +1275,9 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       tokens.push(`${equip}u${slot + 1}`);
     }
 
-    // 新锁。
+    // 新锁：小写 s = 秘钥锁，大写 S = 永久石头锁。
     for (const slot of maskBits(newLockMask)) {
-      tokens.push(`${equip}s${slot + 1}`);
+      tokens.push(`${equip}${la.useKey ? 's' : 'S'}${slot + 1}`);
     }
 
     // 洗练。
@@ -1261,7 +1327,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       wash: best.la.wash,
       unlockSlots: maskBits(localStates[best.localId].lock & ~best.la.protect).map(x => x + 1),
       newLockSlots: maskBits(best.la.protect & ~localStates[best.localId].lock).map(x => x + 1),
-      lockMaterial: mode === 'key' ? 'key' : 'stone',
+      lockMaterial: best.la.useKey ? 'key' : 'stone',
       qStone: bestS,
       qKeys: bestK,
     };

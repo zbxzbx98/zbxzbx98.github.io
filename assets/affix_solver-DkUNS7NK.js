@@ -38,6 +38,12 @@
  *   优越代码伤害 >= 13
  *   最大装弹数 >= 13
  *
+ * options.p（可选，默认 0.1）：
+ *
+ *   秘钥使用概率阈值。秘钥策略下，只有当本次洗练有超过 p 的概率
+ *   到达一个“更优”的状态时才允许使用秘钥锁；否则回退到石头锁动作
+ *   （p=1 时秘钥策略退化为全石头策略）。
+ *
  * 返回：
  *
  * {
@@ -230,6 +236,21 @@ function solve(currentStr, targetStr, options = {}) {
    */
   const tieEps =
     options.tieEps ?? 1e-11;
+
+
+  /**
+   * 秘钥使用概率阈值 p（0~1，默认 0.1）。
+   *
+   * 秘钥策略下，只有当本次洗练有超过 p 的概率
+   * 到达一个“更优”的状态时才允许使用秘钥锁；
+   * 否则该动作视为不可用，直接使用石头洗练。
+   *
+   * “更优”以全石头策略的期望价值（refVs）为参照。
+   */
+  const keyP =
+    typeof options.p === 'number' && options.p >= 0 && options.p <= 1
+      ? options.p
+      : 0.1;
 
 
   /* ==========================================================
@@ -1952,18 +1973,34 @@ function solve(currentStr, targetStr, options = {}) {
       /**
        * 洗练本身的石头费用。
        */
-      let stone =
+      const washStone =
         WASH_STONE[nlock];
 
 
-      let key = 0;
+      /**
+       * 石头变体：
+       *
+       * 新增锁使用永久石头锁。
+       *
+       * 始终可用。
+       */
+      let stoneV =
+        washStone;
 
 
       /**
-       * 新增锁费用。
+       * 秘钥变体：
        *
-       * 锁第一个/第二个栏位费用不同。
+       * 新增锁使用一次性秘钥锁，
+       * 洗练后自动解除。
+       *
+       * 仅在秘钥模式下生成，
+       * 且要满足“本次洗练有超过 p 的概率
+       * 到达更优状态”才会被允许。
        */
+      let keyV = 0;
+
+
       for (
         let k = 0;
         k < added;
@@ -1974,21 +2011,12 @@ function solve(currentStr, targetStr, options = {}) {
           retained + k;
 
 
-        if (
-          mode === 'stone'
-        ) {
+        stoneV +=
+          LOCK_STONE[before];
 
-          stone +=
-            LOCK_STONE[before];
 
-        }
-
-        else {
-
-          key +=
-            LOCK_KEY[before];
-
-        }
+        keyV +=
+          LOCK_KEY[before];
 
       }
 
@@ -2004,46 +2032,102 @@ function solve(currentStr, targetStr, options = {}) {
         ]
       ) {
 
-        const trans =
+        /**
+         * 石头锁动作（永久锁，转移后锁保留）。
+         */
+        const transStone =
           getTransitions(
             stateId,
             protect,
             wash,
-            mode
+            'stone'
           );
 
 
-        /**
-         * 如果动作100%回到原状态，
-         * 而且又需要消耗资源，
-         * 绝对不可能最优。
-         */
         if (
-          trans.length === 1 &&
-          trans[0].id === stateId &&
-          Math.abs(
-            trans[0].p - 1
-          ) < 1e-14
+          !(
+            transStone.length === 1 &&
+            transStone[0].id === stateId &&
+            Math.abs(
+              transStone[0].p - 1
+            ) < 1e-14
+          )
         ) {
 
-          continue;
+          arr.push({
+
+            protect,
+
+            wash,
+
+            stone: stoneV,
+
+            key: 0,
+
+            trans: transStone,
+
+            /**
+             * 是否使用了秘钥锁。
+             */
+            useKey: false,
+
+          });
 
         }
 
 
-        arr.push({
+        /**
+         * 秘钥锁动作：
+         *
+         * 新锁用一次性秘钥锁，
+         * 洗练后锁自动解除（nextLock=keep）。
+         *
+         * 只在秘钥模式且确实新增锁时生成；
+         * 是否允许由秘钥阈值 p 决定。
+         */
+        if (
+          mode === 'key' &&
+          added > 0
+        ) {
 
-          protect,
+          const transKey =
+            getTransitions(
+              stateId,
+              protect,
+              wash,
+              'key'
+            );
 
-          wash,
 
-          stone,
+          if (
+            !(
+              transKey.length === 1 &&
+              transKey[0].id === stateId &&
+              Math.abs(
+                transKey[0].p - 1
+              ) < 1e-14
+            )
+          ) {
 
-          key,
+            arr.push({
 
-          trans,
+              protect,
 
-        });
+              wash,
+
+              stone: washStone,
+
+              key: keyV,
+
+              trans: transKey,
+
+              useKey: true,
+
+            });
+
+          }
+
+        }
 
       }
 
@@ -2151,7 +2235,7 @@ function solve(currentStr, targetStr, options = {}) {
    * ========================================================== */
 
 
-  function run(mode) {
+  function run(mode, refVs) {
 
     const lex =
       mode === 'key';
@@ -2248,6 +2332,59 @@ function solve(currentStr, targetStr, options = {}) {
             mode
           )
         ) {
+
+          /**
+           * 秘钥阈值过滤：
+           *
+           * 秘钥模式下，仅当本次洗练有超过 p 的概率
+           * 到达更优状态的动作才允许使用秘钥；
+           * 否则该动作不可用（直接用石头洗练）。
+           */
+          if (
+            lex &&
+            a.key > 0 &&
+            refVs
+          ) {
+
+            const tol =
+              tieEps *
+              Math.max(
+                1,
+                Math.abs(
+                  refVs[sid]
+                )
+              );
+
+            let pImp = 0;
+
+            for (
+              const tr of a.trans
+            ) {
+
+              if (
+                tr.id !== sid &&
+                refVs[tr.id] <
+                  refVs[sid] -
+                  tol
+              ) {
+
+                pImp +=
+                  tr.p;
+
+              }
+
+            }
+
+            if (
+              pImp <= keyP
+            ) {
+
+              continue;
+
+            }
+
+          }
+
 
           let pSelf = 0;
 
@@ -2506,6 +2643,55 @@ function solve(currentStr, targetStr, options = {}) {
         )
       ) {
 
+        /**
+         * 与价值迭代相同的秘钥阈值过滤。
+         */
+        if (
+          lex &&
+          a.key > 0 &&
+          refVs
+        ) {
+
+          const tol =
+            tieEps *
+            Math.max(
+              1,
+              Math.abs(
+                refVs[sid]
+              )
+            );
+
+          let pImp = 0;
+
+          for (
+            const tr of a.trans
+          ) {
+
+            if (
+              tr.id !== sid &&
+              refVs[tr.id] <
+                refVs[sid] -
+                tol
+            ) {
+
+              pImp +=
+                tr.p;
+
+            }
+
+          }
+
+          if (
+            pImp <= keyP
+          ) {
+
+            continue;
+
+          }
+
+        }
+
+
         let pSelf = 0;
 
 
@@ -2617,6 +2803,16 @@ function solve(currentStr, targetStr, options = {}) {
       iterations:
         iter + 1,
 
+      /**
+       * 暴露价值函数：
+       *
+       * 全石头模式的价值函数
+       * 作为秘钥模式“更优状态”的参照。
+       */
+      vs,
+
+      vk,
+
     };
   }
 
@@ -2634,7 +2830,10 @@ function solve(currentStr, targetStr, options = {}) {
 
 
   const keyRun =
-    run('key');
+    run(
+      'key',
+      stoneRun.vs
+    );
 
 
   /* ==========================================================
@@ -2714,15 +2913,28 @@ function solve(currentStr, targetStr, options = {}) {
     /**
      * 用户定义动作：
      *
-     * s1
-     * s2
-     * s3
+     * s1   （小写 s = 秘钥锁，仅秘钥策略）
+     * S1   （大写 S = 永久石头锁）
      * xg
      * sz
+     *
+     * 秘钥策略里如果选中的是石头锁动作
+     * （不满足秘钥阈值时回退用石头），
+     * 用大写 S 区分，避免 UI 误标成秘钥锁。
      */
+    const lockMaterial =
+      a.useKey
+        ? 'key'
+        : 'stone';
+
+
     const tokens =
       newLocks.map(
-        i => 's' + i
+        i => (
+          a.useKey
+            ? 's'
+            : 'S'
+        ) + i
       );
 
 
@@ -2740,10 +2952,7 @@ function solve(currentStr, targetStr, options = {}) {
 
       newLocks,
 
-      lockMaterial:
-        mode === 'key'
-          ? 'key'
-          : 'stone',
+      lockMaterial,
 
       wash:
         a.wash,
