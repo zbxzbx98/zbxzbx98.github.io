@@ -699,7 +699,7 @@ function slotText(slot) {
 
 function tierClass(tier) {
   if (tier >= 15) return 'tier-15'
-  if (tier >= 13) return 'tier-13'
+  if (tier >= 12) return 'tier-12'
   return ''
 }
 
@@ -1192,8 +1192,8 @@ onUnmounted(() => {
   color: #fff;
 }
 
-/* 阶数样式：13/14 阶蓝色，15 阶黑底蓝字 */
-.tier-13 {
+/* 阶数样式：12-14 阶蓝色，15 阶黑底蓝字 */
+.tier-12 {
   color: #1fa2ff;
   font-weight: 700;
 }
