@@ -6,9 +6,9 @@ A personal toolbox built with **Vue 3 + Vite + Element Plus**, deployed on GitHu
 
 | 模块 / Module | 说明 / Description | 详细文档 / Details |
 | --- | --- | --- |
-| [胜利女神：NIKKE 装备洗练计算器](#1-装备洗练计算器) | 洗词条最优策略：期望石头/秘钥消耗与下一步操作 | [docs/affix-calc.md](docs/affix-calc.md) |
-| [国服前哨基地资源产出计算器](#2-前哨基地资源产出计算器) | 按主线进度计算前哨基地产出，附芯尘（红球）表查询 | [docs/nikke-calc.md](docs/nikke-calc.md) |
-| [在线数独求解器](#3-数独求解器) | 9×9 数独候选剪枝 + 回溯求解 | [docs/sudoku.md](docs/sudoku.md) |
+| 胜利女神：NIKKE 装备洗练计算器 | 洗词条最优策略：期望石头/秘钥消耗与下一步操作 | [docs/affix-calc.md](docs/affix-calc.md) |
+| 国服前哨基地资源产出计算器 | 按主线进度计算前哨基地产出，附芯尘（红球）表查询 | [docs/nikke-calc.md](docs/nikke-calc.md) |
+| 在线数独求解器 | 9×9 数独候选剪枝 + 回溯求解 | [docs/sudoku.md](docs/sudoku.md) |
 
 > 另有 `toy` 分支，用于打包成单 HTML 部署到 **B站 Toy 平台**（含云存档功能，仅含两个 NIKKE 计算器）。详见「分支说明」。
 
