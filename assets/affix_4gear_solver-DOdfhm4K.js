@@ -104,29 +104,46 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     : [];
 
   const targets = [];
-  const seenTarget = new Set();
+  const seenEffect = new Set();
+
+  // 词条 -> 目标编号；合并目标的所有成员映射到同一目标
+  const targetIndexByEffect = new Map();
 
   for (const tok of targetTokens) {
-    const mm = tok.match(/^(uy|gj|bs|fy|xl|xs|bj|mz|dr)(\d+)$/);
+    /**
+     * 支持合并目标（同一行多选）：
+     *   uy13          单个词条
+     *   bsbj22        暴击伤害 或 暴击率，角色总阶数 >= 22
+     */
+    const mm = tok.match(/^((?:uy|gj|bs|fy|xl|xs|bj|mz|dr)+)(\d+)$/);
     if (!mm) throw new Error('非法目标词条: ' + tok);
 
-    const name = mm[1];
+    const names = mm[1].match(/uy|gj|bs|fy|xl|xs|bj|mz|dr/g);
     const req = Number(mm[2]);
 
     if (!Number.isInteger(req) || req < 1 || req > 60) {
-      throw new Error(`目标 ${name} 的角色总阶数必须为 1..60`);
+      throw new Error(`目标 ${names.join('')} 的角色总阶数必须为 1..60`);
     }
-    if (seenTarget.has(name)) {
-      throw new Error('目标词条重复: ' + name);
-    }
-    seenTarget.add(name);
 
-    const eidx = EFFECT_INDEX.get(name);
+    // 所有词条不允许重复（含合并目标内部的成员）
+    const dup = names.find(n => seenEffect.has(n));
+    if (dup !== undefined) throw new Error('目标词条重复: ' + dup);
+    for (const n of names) seenEffect.add(n);
+
+    const weight = names.reduce((s, n) => s + EFFECTS[EFFECT_INDEX.get(n)][1], 0);
+    const j = targets.length;
+    for (const n of names) targetIndexByEffect.set(EFFECT_INDEX.get(n), j);
+
     targets.push({
-      name,
+      // 展示名/子目标代号：成员代号直接拼接（如 bsbj）
+      name: names.join(''),
+      names,
       req,
-      eidx,
-      weight: EFFECTS[eidx][1],
+      eidx: EFFECT_INDEX.get(names[0]),
+      weight,
+      // 成员按权重类别计数（抽词条时按成员逐个进入词条池）
+      members10: names.filter(n => EFFECTS[EFFECT_INDEX.get(n)][1] === 0.10).length,
+      members12: names.filter(n => EFFECTS[EFFECT_INDEX.get(n)][1] === 0.12).length,
       cap: Math.min(15, req),
       tierBuckets: null,
     });
@@ -141,7 +158,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   }
 
   const m = targets.length;
-  const targetIndexByEffect = new Map(targets.map((t, j) => [t.eidx, j]));
+  // targetIndexByEffect 已在解析目标时由合并目标的所有成员共同构建
 
   // 将阶数分布压缩成对目标总和真正有意义的贡献值。
   // 若某目标总需求 <= 15，则单槽贡献超过需求的部分没有额外价值，可以合并。
@@ -192,7 +209,6 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   }
 
   function validLocalSlots(slots) {
-    const usedTarget = new Set();
     let c10 = 0;
     let c12 = 0;
 
@@ -203,8 +219,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         const { j, value } = decodeTargetCode(code);
         if (j < 0 || j >= m) return false;
         if (value < 1 || value > targets[j].cap) return false;
-        if (usedTarget.has(j)) return false;
-        usedTarget.add(j);
+        // 合并目标的不同成员（如 bs 和 bj）可同时出现在一件装备上，
+        // 因此同一目标可以重复出现。
       } else if (code === O10) {
         c10++;
       } else if (code === O12) {
@@ -424,14 +440,14 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     const n = originalStartLocalIds.length;
     const digitsOpt = options.digits ?? 6;
 
-    // 每件装备当前对各目标的贡献
+    // 每件装备当前对各目标的贡献（同一目标多槽位时累加）
     const cur = originalStartLocalIds.map(localId => {
       const st = localStates[localId];
       const row = new Array(m).fill(0);
       for (const code of st.slots) {
         if (!isTargetCode(code)) continue;
         const { j, value } = decodeTargetCode(code);
-        row[j] = value;
+        row[j] += value;
       }
       return row;
     });
@@ -512,7 +528,13 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
     const curCnt = j => A.reduce((a, row) => a + (row[j] ? 1 : 0), 0);
     const proxyCost = (j, k) => {
-      const C = targets[j].weight === 0.10 ? COST10 : COST12;
+      const w = targets[j].weight;
+      let C = COST10;
+      if (w === 0.12) C = COST12;
+      else if (w !== 0.10) {
+        // 合并目标（权重 > 0.12）：期望次数约与权重成反比，按比例缩放
+        C = COST10.map(c => c * 0.10 / w);
+      }
       return k * C[Math.ceil(targets[j].req / k) - 1];
     };
 
@@ -712,7 +734,9 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     if (cached) return cached;
 
     const out = [0, 0, 0];
-    const availTarget = Array(m).fill(true);
+    // 每个目标 j 剩余可抽的成员数（10% / 12% 权重类别）
+    const rem10 = targets.map(t => t.members10);
+    const rem12 = targets.map(t => t.members12);
     let r10 = nonTarget10;
     let r12 = nonTarget12;
 
@@ -723,8 +747,11 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       out[i] = code;
 
       if (isTargetCode(code)) {
+        // 目标 j 的一个成员被保护：从对应权重类别减掉一个成员
+        // （具体是哪个成员未知，同类成员概率相等，误差可忽略）
         const { j } = decodeTargetCode(code);
-        availTarget[j] = false;
+        if (rem10[j] > 0) rem10[j]--;
+        else if (rem12[j] > 0) rem12[j]--;
       } else if (code === O10) {
         r10--;
       } else if (code === O12) {
@@ -759,33 +786,50 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
       const acquire = SLOT_GET[pos];
 
+      // 计算剩余候选池总权重。
+      let totalWeight = rr10 * 0.10 + rr12 * 0.12;
+      for (let j = 0; j < m; j++) {
+        totalWeight += rem10[j] * 0.10 + rem12[j] * 0.12;
+      }
+
+      // 候选池已空：本栏位必然拿不到词条（wd），概率必须完整保留，不能丢弃。
+      if (totalWeight <= 0) {
+        out[pos] = 0;
+        recurse(pos + 1, prob, rr10, rr12);
+        return;
+      }
+
       // 没获得效果。
       if (acquire < 1) {
         out[pos] = 0;
         recurse(pos + 1, prob * (1 - acquire), rr10, rr12);
       }
 
-      // 计算剩余候选池总权重。
-      let totalWeight = rr10 * 0.10 + rr12 * 0.12;
+      // 抽到目标词条 j（按成员计数逐个抽），再抽阶数。
       for (let j = 0; j < m; j++) {
-        if (availTarget[j]) totalWeight += targets[j].weight;
-      }
+        const buckets = targets[j].tierBuckets;
 
-      if (acquire <= 0 || totalWeight <= 0) return;
-
-      // 抽到目标词条 j，再抽阶数。
-      for (let j = 0; j < m; j++) {
-        if (!availTarget[j]) continue;
-
-        const pEffect = acquire * targets[j].weight / totalWeight;
-        availTarget[j] = false;
-
-        for (const tb of targets[j].tierBuckets) {
-          out[pos] = targetCode(j, tb.value);
-          recurse(pos + 1, prob * pEffect * tb.p, rr10, rr12);
+        // 抽到一个 10% 权重成员。
+        if (rem10[j] > 0) {
+          const pEffect = acquire * rem10[j] * 0.10 / totalWeight;
+          rem10[j]--;
+          for (const tb of buckets) {
+            out[pos] = targetCode(j, tb.value);
+            recurse(pos + 1, prob * pEffect * tb.p, rr10, rr12);
+          }
+          rem10[j]++;
         }
 
-        availTarget[j] = true;
+        // 抽到一个 12% 权重成员。
+        if (rem12[j] > 0) {
+          const pEffect = acquire * rem12[j] * 0.12 / totalWeight;
+          rem12[j]--;
+          for (const tb of buckets) {
+            out[pos] = targetCode(j, tb.value);
+            recurse(pos + 1, prob * pEffect * tb.p, rr10, rr12);
+          }
+          rem12[j]++;
+        }
       }
 
       // 抽到一个10%组非目标。

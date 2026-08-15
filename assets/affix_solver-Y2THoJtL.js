@@ -274,13 +274,33 @@ function solve(currentStr, targetStr, options = {}) {
 
   const targets = [];
 
-  const seenTarget = new Set();
+  const seenEffect = new Set();
+
+  /**
+   * 原始 effect index
+   * ->
+   * 目标编号
+   *
+   * 合并目标（同一行多选）的所有成员
+   * 都映射到同一个目标编号。
+   */
+  const tIndexByEffect =
+    new Map();
 
 
   for (const tok of targetTokens) {
 
+    /**
+     * 支持合并目标：
+     *
+     *   uy13          单个词条
+     *   bsbj11        暴击伤害 或 暴击率 >= 11
+     *
+     * 合并目标 = 同一行选中的多个词条按权重合并，
+     * 抽中其中任意一个即达标。
+     */
     const m = tok.match(
-      /^(uy|gj|bs|fy|xl|xs|bj|mz|dr)(\d+)$/
+      /^((?:uy|gj|bs|fy|xl|xs|bj|mz|dr)+)(\d+)$/
     );
 
 
@@ -291,7 +311,11 @@ function solve(currentStr, targetStr, options = {}) {
     }
 
 
-    const name = m[1];
+    const names =
+      m[1].match(
+        /uy|gj|bs|fy|xl|xs|bj|mz|dr/g
+      );
+
 
     const th = Number(m[2]);
 
@@ -303,34 +327,107 @@ function solve(currentStr, targetStr, options = {}) {
     }
 
 
-    if (seenTarget.has(name)) {
+    /**
+     * 所有词条不允许重复
+     * （包括合并目标内部的成员）。
+     */
+    const dup =
+      names.find(
+        n => seenEffect.has(n)
+      );
+
+
+    if (dup !== undefined) {
       throw new Error(
-        '目标词条重复: ' + name
+        '目标词条重复: ' + dup
       );
     }
 
 
-    seenTarget.add(name);
+    for (const n of names) {
+      seenEffect.add(n);
+    }
 
 
-    const eidx =
-      EFFECT_INDEX.get(name);
+    /**
+     * 合并权重：
+     *
+     * 多个词条合并后相当于一个
+     * “权重 = 各成员权重之和”的词条。
+     */
+    const weight =
+      names.reduce(
+        (s, n) =>
+          s +
+          EFFECTS[
+            EFFECT_INDEX.get(n)
+          ][1],
+        0
+      );
+
+
+    const j =
+      targets.length;
+
+
+    for (const n of names) {
+      tIndexByEffect.set(
+        EFFECT_INDEX.get(n),
+        j
+      );
+    }
 
 
     targets.push({
 
-      name,
+      /**
+       * 展示名：成员代号直接拼接（如 bsbj）。
+       */
+      name:
+        names.join(''),
+
+      /**
+       * 成员代号数组。
+       */
+      names,
 
       th,
 
-      eidx,
+      eidx:
+        EFFECT_INDEX.get(
+          names[0]
+        ),
 
-      weight:
-        EFFECTS[eidx][1],
+      weight,
+
+      /**
+       * 成员按权重类别计数：
+       *
+       * 抽词条时按成员逐个进入词条池
+       * （与 O10/O12 非目标组一致）。
+       */
+      members10:
+        names.filter(
+          n =>
+            EFFECTS[
+              EFFECT_INDEX.get(n)
+            ][1] === 0.10
+        ).length,
+
+      members12:
+        names.filter(
+          n =>
+            EFFECTS[
+              EFFECT_INDEX.get(n)
+            ][1] === 0.12
+        ).length,
 
       /**
        * 每次重新随机阶数以后，
-       * 直接达到目标阶数的概率
+       * 直接达到目标阶数的概率。
+       *
+       * 所有词条的阶数分布相同，
+       * 所以合并目标直接沿用。
        */
       q:
         tierGoodProb(th),
@@ -338,22 +435,6 @@ function solve(currentStr, targetStr, options = {}) {
     });
 
   }
-
-
-  /**
-   * 原始 effect index
-   * ->
-   * 目标编号
-   */
-  const tIndexByEffect =
-    new Map(
-      targets.map(
-        (t, i) => [
-          t.eidx,
-          i,
-        ]
-      )
-    );
 
 
   const m =
@@ -482,14 +563,12 @@ function solve(currentStr, targetStr, options = {}) {
   /**
    * 检查压缩状态是否合法。
    *
-   * 例如同一个目标词条不能
-   * 同时出现在两个栏位。
+   * 合并目标（同一行多选）的成员是不同词条，
+   * 同一目标可以出现在多个栏位
+   * （例如一件装备同时有 bs 和 bj），
+   * 因此这里不再限制目标重复。
    */
   function validSlots(s) {
-
-    const used =
-      new Set();
-
 
     let c10 = 0;
 
@@ -502,18 +581,7 @@ function solve(currentStr, targetStr, options = {}) {
         isTargetCode(c)
       ) {
 
-        const j =
-          targetOfCode(c);
-
-
-        if (
-          used.has(j)
-        ) {
-          return false;
-        }
-
-
-        used.add(j);
+        // 目标可重复出现（合并目标的不同成员）
 
       }
 
@@ -1102,10 +1170,22 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     /**
-     * 哪些目标效果仍然可以抽。
+     * 每个目标 j 剩余可抽的成员数：
+     *
+     * 合并目标按成员计数保留在词条池中
+     * （与 O10/O12 非目标组一样），
+     * 抽走一个成员只减一个计数，
+     * 组内其他成员仍可继续抽。
      */
-    const availT =
-      Array(m).fill(true);
+    const rem10 =
+      targets.map(
+        t => t.members10
+      );
+
+    const rem12 =
+      targets.map(
+        t => t.members12
+      );
 
 
     /**
@@ -1145,9 +1225,32 @@ function solve(currentStr, targetStr, options = {}) {
           isTargetCode(c)
         ) {
 
-          availT[
-            targetOfCode(c)
-          ] = false;
+          /**
+           * 目标 j 的一个成员被保护：
+           * 从对应权重类别里减掉一个成员。
+           *
+           * 具体是哪个成员未知，
+           * 但同类成员概率相等，误差可忽略。
+           */
+          const j =
+            targetOfCode(c);
+
+
+          if (
+            rem10[j] > 0
+          ) {
+
+            rem10[j]--;
+
+          }
+
+          else if (
+            rem12[j] > 0
+          ) {
+
+            rem12[j]--;
+
+          }
 
         }
 
@@ -1245,6 +1348,53 @@ function solve(currentStr, targetStr, options = {}) {
 
 
       /**
+       * 计算当前剩余词条池总权重。
+       */
+      let total =
+        rr10 * 0.10 +
+        rr12 * 0.12;
+
+
+      for (
+        let j = 0;
+        j < m;
+        j++
+      ) {
+
+        total +=
+          rem10[j] * 0.10 +
+          rem12[j] * 0.12;
+
+      }
+
+
+      /**
+       * 词条池已空（例如合并目标把大权重一次性抽走、
+       * 或剩余目标都被保护/占用时）：
+       *
+       * 本栏位必然拿不到词条（wd），
+       * 概率必须完整保留，不能丢弃。
+       */
+      if (
+        total <= 0
+      ) {
+
+        out[pos] = 0;
+
+
+        rec(
+          pos + 1,
+          prob,
+          rr10,
+          rr12
+        );
+
+        return;
+
+      }
+
+
+      /**
        * 本栏位没有获得词条。
        */
       if (
@@ -1264,41 +1414,6 @@ function solve(currentStr, targetStr, options = {}) {
       }
 
 
-      /**
-       * 计算当前剩余词条池总权重。
-       */
-      let total =
-        rr10 * 0.10 +
-        rr12 * 0.12;
-
-
-      for (
-        let j = 0;
-        j < m;
-        j++
-      ) {
-
-        if (
-          availT[j]
-        ) {
-
-          total +=
-            targets[j].weight;
-
-        }
-
-      }
-
-
-      if (
-        total <= 0 ||
-        acq <= 0
-      ) {
-
-        return;
-      }
-
-
       /* ------------------------------------------------------
        * 抽到某个目标词条
        * ------------------------------------------------------ */
@@ -1309,96 +1424,158 @@ function solve(currentStr, targetStr, options = {}) {
         j++
       ) {
 
-        if (
-          !availT[j]
-        ) {
-          continue;
-        }
-
-
-        /**
-         * 抽到该词条的概率
-         */
-        const pe =
-          acq *
-          targets[j].weight /
-          total;
-
-
-        /**
-         * 无放回：
-         * 后续栏位不能再抽该词条。
-         */
-        availT[j] =
-          false;
-
-
-        /**
-         * 抽到效果后，
-         * 再随机阶数。
-         */
         const q =
           targets[j].q;
 
 
         /**
-         * 阶数达标
+         * 抽到目标 j 的一个 10% 权重成员。
          */
         if (
-          q > 0
+          rem10[j] > 0
         ) {
 
-          out[pos] =
-            codeTarget(
-              j,
-              true
+          const pe =
+            acq *
+            rem10[j] *
+            0.10 /
+            total;
+
+
+          rem10[j]--;
+
+
+          /**
+           * 阶数达标
+           */
+          if (
+            q > 0
+          ) {
+
+            out[pos] =
+              codeTarget(
+                j,
+                true
+              );
+
+
+            rec(
+              pos + 1,
+
+              prob *
+                pe *
+                q,
+
+              rr10,
+              rr12
             );
 
+          }
 
-          rec(
-            pos + 1,
 
-            prob *
-              pe *
-              q,
+          /**
+           * 阶数不达标
+           */
+          if (
+            q < 1
+          ) {
 
-            rr10,
-            rr12
-          );
+            out[pos] =
+              codeTarget(
+                j,
+                false
+              );
+
+
+            rec(
+              pos + 1,
+
+              prob *
+                pe *
+                (1 - q),
+
+              rr10,
+              rr12
+            );
+
+          }
+
+
+          rem10[j]++;
 
         }
 
 
         /**
-         * 阶数不达标
+         * 抽到目标 j 的一个 12% 权重成员。
          */
         if (
-          q < 1
+          rem12[j] > 0
         ) {
 
-          out[pos] =
-            codeTarget(
-              j,
-              false
+          const pe =
+            acq *
+            rem12[j] *
+            0.12 /
+            total;
+
+
+          rem12[j]--;
+
+
+          if (
+            q > 0
+          ) {
+
+            out[pos] =
+              codeTarget(
+                j,
+                true
+              );
+
+
+            rec(
+              pos + 1,
+
+              prob *
+                pe *
+                q,
+
+              rr10,
+              rr12
             );
 
+          }
 
-          rec(
-            pos + 1,
 
-            prob *
-              pe *
-              (1 - q),
+          if (
+            q < 1
+          ) {
 
-            rr10,
-            rr12
-          );
+            out[pos] =
+              codeTarget(
+                j,
+                false
+              );
+
+
+            rec(
+              pos + 1,
+
+              prob *
+                pe *
+                (1 - q),
+
+              rr10,
+              rr12
+            );
+
+          }
+
+
+          rem12[j]++;
 
         }
-
-
-        availT[j] =
-          true;
 
       }
 
