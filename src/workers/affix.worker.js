@@ -64,6 +64,8 @@ self.onmessage = (e) => {
             epsilon: 1e-9,
             maxIterations: 10000,
             digits: 6,
+            // 秘钥使用概率阈值 p（0~1，默认 0.3）
+            p: typeof options?.p === 'number' ? options.p : 0.3,
           })
           self.postMessage({ id, ok: true, result })
         } else if (type === 'character') {
@@ -72,6 +74,7 @@ self.onmessage = (e) => {
             maxGlobalStates: options?.maxGlobalStates ?? 500000,
             maxTransitionsPerAction: options?.maxTransitionsPerAction ?? 500000,
             digits: 6,
+            p: typeof options?.p === 'number' ? options.p : 0.3,
             solve,
             onProgress(info) {
               self.postMessage({ id, ok: true, progress: info })

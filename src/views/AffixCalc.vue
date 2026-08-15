@@ -60,6 +60,15 @@
             </div>
           </div>
 
+          <div class="panel">
+            <h2 class="panel-title">③ 秘钥使用阈值 p</h2>
+            <p class="panel-note">秘钥策略下，仅当本次洗练后有超过 p 的概率到达更优状态时才使用秘钥锁；否则直接用石头洗练。p 越大越节省秘钥。</p>
+            <div class="p-row">
+              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" style="width: 160px" />
+              <span class="p-value-note">当前阈值 {{ keyP }}（0 = 尽可能多用秘钥；1 = 完全不用秘钥）</span>
+            </div>
+          </div>
+
           <div class="panel action-panel">
             <div class="action-buttons">
               <el-button color="#1fa2ff" size="large" :loading="computing && resultMode === 'single'" @click="computeSingle">开始计算</el-button>
@@ -149,7 +158,7 @@
                 </div>
                 <div class="cost-item">
                   <div class="cost-num">{{ costParts.keys }}</div>
-                  <div class="cost-label">秘钥期望（秘钥）</div>
+                  <div class="cost-label">秘钥期望</div>
                 </div>
               </div>
 
@@ -158,7 +167,7 @@
                 <ol class="action-list">
                   <li v-for="(tok, idx) in singleKeyTokens" :key="idx">{{ translateToken(tok, 'single', false) }}</li>
                 </ol>
-                <p class="note">注：秘钥锁为一次性，本次洗练后自动解除；解锁免费。</p>
+                <p class="note">注：秘钥锁为一次性，本次洗练后自动解除；仅在本次洗练有超过阈值 p 的概率到达更优状态时才使用秘钥锁，否则回退用石头锁/直接洗练。解锁免费。</p>
               </div>
 
               <div class="action-section">
@@ -171,6 +180,19 @@
             </template>
 
             <div class="meta-line" v-if="result.stateCount">压缩状态数：{{ result.stateCount }}</div>
+
+            <div class="time-section" v-if="expectedDays">
+              <h4>期望攒资源时间（按每日产出）</h4>
+              <div class="time-row">
+                <span class="time-server">国服（2.278 石头/天，18 秘钥/天）</span>
+                <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
+              </div>
+              <div class="time-row">
+                <span class="time-server">国际服（2.71 石头/天，18 秘钥/天）</span>
+                <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
+              </div>
+              <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
+            </div>
           </div>
         </el-tab-pane>
 
@@ -230,6 +252,15 @@
             </div>
             <div class="algorithm-note">
               算法说明：角色版把总目标分解到四件装备，分别用单装备精确求解器计算，总期望为各装备期望之和，结果接近全局最优但为近似策略，供参考。
+            </div>
+          </div>
+
+          <div class="panel">
+            <h2 class="panel-title">③ 秘钥使用阈值 p</h2>
+            <p class="panel-note">秘钥策略下，仅当本次洗练后有超过 p 的概率到达更优状态时才使用秘钥锁；否则直接用石头洗练。p 越大越节省秘钥。</p>
+            <div class="p-row">
+              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" style="width: 160px" />
+              <span class="p-value-note">当前阈值 {{ keyP }}（0 = 尽可能多用秘钥；1 = 完全不用秘钥）</span>
             </div>
           </div>
 
@@ -331,7 +362,7 @@
                 </div>
                 <div class="cost-item">
                   <div class="cost-num">{{ costParts.keys }}</div>
-                  <div class="cost-label">秘钥期望（秘钥）</div>
+                  <div class="cost-label">秘钥期望</div>
                 </div>
               </div>
 
@@ -340,7 +371,7 @@
                 <ol class="action-list">
                   <li v-for="(tok, idx) in actionTokens(result.action)" :key="idx">{{ translateToken(tok, 'character') }}</li>
                 </ol>
-                <p class="note">注：允许秘钥策略中的锁定为一次性秘钥锁，本次洗练后自动解除。</p>
+                <p class="note">注：允许秘钥策略中的秘钥锁为一次性，本次洗练后自动解除；仅在本次洗练有超过阈值 p 的概率到达更优状态时才使用秘钥锁，否则回退用石头锁/直接洗练。</p>
               </div>
 
               <div class="action-section">
@@ -363,6 +394,19 @@
             </div>
             <div class="meta-line" v-if="result.graph && result.graph.mode !== 'decomposed'">
               求解规模：全石头 {{ result.graph.stoneOnlyStates }} 状态 / 允许秘钥 {{ result.graph.withKeysStates }} 状态
+            </div>
+
+            <div class="time-section" v-if="expectedDays">
+              <h4>期望攒资源时间（按每日产出）</h4>
+              <div class="time-row">
+                <span class="time-server">国服（2.278 石头/天，18 秘钥/天）</span>
+                <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
+              </div>
+              <div class="time-row">
+                <span class="time-server">国际服（2.71 石头/天，18 秘钥/天）</span>
+                <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
+              </div>
+              <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
             </div>
           </div>
         </el-tab-pane>
@@ -479,6 +523,10 @@ const singleGear = ref(blankGear())
 const characterGears = ref([blankGear(), blankGear(), blankGear(), blankGear()])
 const singleTargets = ref([blankTarget()])
 const characterTargets = ref([blankTarget()])
+
+// 秘钥使用概率阈值 p（0~1，默认 0.3）：
+// 秘钥策略下，仅当本次洗练有超过 p 的概率到达更优状态时才使用秘钥锁
+const keyP = ref(0.3)
 
 const computing = ref(false)
 const resultMode = ref('')
@@ -739,7 +787,7 @@ function requestCompute(payload) {
     type: payload.type,
     current: payload.current,
     target: payload.target,
-    options: undefined,
+    options: { p: keyP.value },
   })
 }
 
@@ -826,7 +874,7 @@ function runCompare(type, current, target) {
       type,
       current,
       target,
-      options: undefined,
+      options: { p: keyP.value },
     })
   })
 }
@@ -972,6 +1020,40 @@ const costParts = computed(() => {
   return { allStone: m[1], keyStone: m[2], keys: m[3] }
 })
 
+/* ==================== 期望攒资源时间 ==================== */
+
+// 每日资源产出：国服 / 国际服
+const DAILY_RATE = {
+  cn: { stone: 2.278, key: 18 },
+  int: { stone: 2.71, key: 18 },
+}
+
+const expectedDays = computed(() => {
+  const r = result.value
+  if (!r || !r.expected) return null
+  const allStone = Number(r.expected.stoneOnly)
+  const keyStone = Number(r.expected.withKeysStone)
+  const keys = Number(r.expected.withKeysKeys)
+  if (!Number.isFinite(allStone) || !Number.isFinite(keyStone) || !Number.isFinite(keys)) return null
+  // 已经达标（全部为 0）时不展示
+  if (allStone <= 1e-9 && keyStone <= 1e-9 && keys <= 1e-9) return null
+  const calc = (rate) => ({
+    // 秘钥策略：石头与秘钥并行攒，取较慢者
+    key: Math.max(keyStone / rate.stone, keys / rate.key),
+    // 全石头策略：只攒石头
+    stone: allStone / rate.stone,
+  })
+  return {
+    cn: calc(DAILY_RATE.cn),
+    int: calc(DAILY_RATE.int),
+  }
+})
+
+function fmtDays(d) {
+  if (!Number.isFinite(d)) return '-'
+  return '约 ' + d.toFixed(1).replace(/\.0$/, '') + ' 天'
+}
+
 // 单装备：把“先免费解锁”合并进策略列表的第一步
 const singleKeyTokens = computed(() => {
   const r = result.value
@@ -1001,9 +1083,10 @@ function translateToken(tok, mode, isStone = false) {
   if (tok === 'd0') return '已经达标，无需操作'
 
   if (mode === 'character') {
-    let m = tok.match(/^([1-4])(s|u)([1-3])$/)
+    let m = tok.match(/^([1-4])(s|u|S)([1-3])$/)
     if (m) {
       if (m[2] === 'u') return `免费解锁第${num[+m[1]]}件装备第${m[3]}栏`
+      if (m[2] === 'S') return `锁定第${num[+m[1]]}件装备第${m[3]}栏（永久石头锁）`
       return `锁定第${num[+m[1]]}件装备第${m[3]}栏（${isStone ? '永久石头锁' : '一次性秘钥锁'}）`
     }
     m = tok.match(/^([1-4])(xg|sz)$/)
@@ -1013,9 +1096,10 @@ function translateToken(tok, mode, isStone = false) {
     return tok
   }
 
-  let m = tok.match(/^([su])([1-3])$/)
+  let m = tok.match(/^([suS])([1-3])$/)
   if (m) {
     if (m[1] === 'u') return `免费解锁第${m[2]}栏`
+    if (m[1] === 'S') return `锁定第${m[2]}栏（永久石头锁）`
     return `锁定第${m[2]}栏（${isStone ? '永久石头锁' : '一次性秘钥锁'}）`
   }
   if (tok === 'xg') return '变更效果（重新随机未锁定栏位的词条效果）'
@@ -1301,6 +1385,57 @@ code {
   color: #35537a;
   font-size: 13px;
   line-height: 1.7;
+}
+
+.p-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.p-value-note {
+  color: #888;
+  font-size: 13px;
+}
+
+.time-section {
+  margin-top: 18px;
+  background: #f7faff;
+  border: 1px solid #e3ecf7;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.time-section h4 {
+  margin: 0 0 10px;
+  color: #333;
+}
+
+.time-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+  border-bottom: 1px dashed #e3ecf7;
+}
+
+.time-row:last-of-type {
+  border-bottom: none;
+}
+
+.time-server {
+  color: #666;
+  font-size: 13px;
+  flex: 1 1 220px;
+}
+
+.time-val {
+  color: #1fa2ff;
+  font-weight: bold;
+  font-size: 14px;
 }
 
 .result-panel {
