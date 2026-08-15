@@ -64,7 +64,7 @@
             <h2 class="panel-title">③ 秘钥使用阈值 p</h2>
             <p class="panel-note">秘钥策略下，仅当本次洗练后有超过 p 的概率到达更优状态时才使用秘钥锁；否则直接用石头洗练。p 越大越节省秘钥。</p>
             <div class="p-row">
-              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" style="width: 160px" />
+              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.01" :precision="2" controls-position="right" style="width: 160px" />
               <span class="p-value-note">当前阈值 {{ keyP }}（0 = 尽可能多用秘钥；1 = 完全不用秘钥）</span>
             </div>
           </div>
@@ -184,11 +184,11 @@
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
               <div class="time-row">
-                <span class="time-server">国服（2.278 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国服（3.402 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row">
-                <span class="time-server">国际服（2.71 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
               <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
@@ -259,7 +259,7 @@
             <h2 class="panel-title">③ 秘钥使用阈值 p</h2>
             <p class="panel-note">秘钥策略下，仅当本次洗练后有超过 p 的概率到达更优状态时才使用秘钥锁；否则直接用石头洗练。p 越大越节省秘钥。</p>
             <div class="p-row">
-              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.05" :precision="2" controls-position="right" style="width: 160px" />
+              <el-input-number v-model="keyP" :min="0" :max="1" :step="0.01" :precision="2" controls-position="right" style="width: 160px" />
               <span class="p-value-note">当前阈值 {{ keyP }}（0 = 尽可能多用秘钥；1 = 完全不用秘钥）</span>
             </div>
           </div>
@@ -399,11 +399,11 @@
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
               <div class="time-row">
-                <span class="time-server">国服（2.278 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国服（3.402 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row">
-                <span class="time-server">国际服（2.71 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
               <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
@@ -524,9 +524,9 @@ const characterGears = ref([blankGear(), blankGear(), blankGear(), blankGear()])
 const singleTargets = ref([blankTarget()])
 const characterTargets = ref([blankTarget()])
 
-// 秘钥使用概率阈值 p（0~1，默认 0.3）：
+// 秘钥使用概率阈值 p（0~1，默认 0.1）：
 // 秘钥策略下，仅当本次洗练有超过 p 的概率到达更优状态时才使用秘钥锁
-const keyP = ref(0.3)
+const keyP = ref(0.1)
 
 const computing = ref(false)
 const resultMode = ref('')
@@ -1024,8 +1024,8 @@ const costParts = computed(() => {
 
 // 每日资源产出：国服 / 国际服
 const DAILY_RATE = {
-  cn: { stone: 2.278, key: 18 },
-  int: { stone: 2.71, key: 18 },
+  cn: { stone: 3.402, key: 18 },
+  int: { stone: 4.21, key: 18 },
 }
 
 const expectedDays = computed(() => {

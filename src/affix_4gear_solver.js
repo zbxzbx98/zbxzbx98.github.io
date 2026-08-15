@@ -84,7 +84,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   const progress = typeof options.onProgress === 'function' ? options.onProgress : null;
 
   /**
-   * 秘钥使用概率阈值 p（0~1，默认 0.3）。
+   * 秘钥使用概率阈值 p（0~1，默认 0.1）。
    *
    * 秘钥策略下，只有当本次洗练有超过 p 的概率
    * 到达一个“更优”的状态时才允许使用秘钥锁；
@@ -93,7 +93,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
   const keyP =
     typeof options.p === 'number' && options.p >= 0 && options.p <= 1
       ? options.p
-      : 0.3;
+      : 0.1;
 
   /* ========================================================
    * 1. 解析目标
@@ -619,7 +619,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
           maxIterations: options.maxIterations ?? 10000,
           digits: digitsOpt,
           // 秘钥使用概率阈值透传给单装备求解器
-          p: options.p ?? 0.3,
+          p: options.p ?? 0.1,
         });
         gearResults[g] = r;
         const mm = String(r.cost).match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/);
