@@ -30,7 +30,6 @@ Calculates the Outpost resource output rate from your **Normal** and **Hard** ca
 
 #### 3. 其他
 
-- 多语言支持：简体中文 / 繁体中文 / English / 日本語 / 한국어；
 - 数值可能存在 ±0.01 显示误差；
 - 由 zbxzbx98 搬运自 [doro112 的 nikkeoutpost](https://nikkeoutpost.netlify.app)。
 
@@ -74,7 +73,6 @@ Calculates the Outpost resource output rate from your **Normal** and **Hard** ca
 
 #### 3. Others
 
-- Multi-language: 简体中文 / 繁體中文 / English / 日本語 / 한국어;
 - Values may have a ±0.01 display error;
 - Ported by zbxzbx98 from [doro112's nikkeoutpost](https://nikkeoutpost.netlify.app).
 
