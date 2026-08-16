@@ -95,6 +95,13 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       ? options.p
       : 0.1;
 
+  /**
+   * 是否启用“更精确策略计算”（改进分配候选对比）。
+   * 默认开启；关闭后使用原始快速启发式分配（更快，但在已有高阶词条时
+   * 分配可能不是最优，甚至比空装备更贵）。
+   */
+  const usePrecise = options.usePrecise !== false;
+
   /* ========================================================
    * 1. 解析目标
    * ======================================================== */
@@ -568,8 +575,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       return sub;
     }
 
-    // 改进候选：仅当当前状态存在“有价值的现有目标”（≥11 阶）时才考虑，
-    // 空装备/低阶状态下原始分配已足够好，避免无谓的候选对比开销
+    // 改进候选：仅当启用了精确策略且当前状态存在“有价值的现有目标”（≥11 阶）时
+    // 才考虑；空装备/低阶状态原始分配已足够好，避免无谓的候选对比开销
     const hasHighExisting = (() => {
       for (let g = 0; g < n; g++) {
         for (let j = 0; j < m; j++) {
@@ -578,7 +585,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       }
       return false;
     })();
-    const improvedSub = hasHighExisting ? buildAllocationImproved() : null;
+    const improvedSub = usePrecise && hasHighExisting ? buildAllocationImproved() : null;
 
     // 分配：A[g][j] = 装备 g 是否承担目标 j
     const A = cur.map(row => row.map(v => v > 0));
@@ -747,7 +754,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       }
       const key = (eps < 1e-6 ? 'L' : 'P') + g + '|' + subs.join(',');
       if (gearCostCache.has(key)) return gearCostCache.get(key);
-      if (progress && eps >= 1e-6) progress({ phase: 'gear', gear: g + 1, total: n });
+      // 仅精确求解阶段上报装备进度（宽松评估阶段不打扰用户）
+      if (progress && eps < 1e-6) progress({ phase: 'gear', gear: g + 1, total: n });
       const r = solveGear(gearTexts[g], subs.join(','), {
         epsilon: eps,
         maxIterations: options.maxIterations ?? 10000,
@@ -771,6 +779,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     // 选最优候选：候选不同时用宽松精度快速排序，胜者再用精确精度求解展示
     let bestSub = sub;
     if (candidatesDiffer) {
+      if (progress) progress({ phase: 'compare' });
       const looseTotals = candidates.map(cand => {
         let t = 0;
         for (let g = 0; g < n; g++) t += stoneOf(evalGear(g, cand, LOOSE_EPS));

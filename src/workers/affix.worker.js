@@ -75,6 +75,8 @@ self.onmessage = (e) => {
             maxTransitionsPerAction: options?.maxTransitionsPerAction ?? 500000,
             digits: 6,
             p: typeof options?.p === 'number' ? options.p : 0.1,
+            // 是否启用“更精确策略计算”（改进分配候选对比，更慢）
+            usePrecise: options?.usePrecise !== false,
             solve,
             onProgress(info) {
               self.postMessage({ id, ok: true, progress: info })

@@ -263,6 +263,10 @@
               <el-input-number v-model="keyP" :min="0" :max="1" :step="0.01" :precision="2" controls-position="right" style="width: 160px" />
               <span class="p-value-note">当前阈值 {{ keyP }}（0 = 尽可能多用秘钥；1 = 完全不用秘钥）</span>
             </div>
+            <div class="p-row" style="margin-top: 10px;">
+              <el-checkbox v-model="usePrecise">使用更精确策略计算</el-checkbox>
+              <span class="p-value-note">勾选后会对比两种分配方案取更优（已有高阶词条时更准确，但计算更慢）；取消勾选使用快速近似分配。</span>
+            </div>
           </div>
 
           <div class="panel action-panel">
@@ -537,6 +541,9 @@ const characterTargets = ref([blankTarget(44)])
 // 秘钥策略下，仅当本次洗练有超过 p 的概率到达更优状态时才使用秘钥锁
 const keyP = ref(0.1)
 
+// 角色版“更精确策略计算”：对比两种分配方案取更优（更慢）
+const usePrecise = ref(true)
+
 const computing = ref(false)
 const resultMode = ref('')
 const progressText = ref('')
@@ -779,6 +786,9 @@ function handleWorkerMessage(e) {
 function formatProgress(info) {
   const phase = info.phase || ''
   const mode = phase.includes('key') ? '允许秘钥' : '全石头'
+  if (phase === 'compare') {
+    return '正在对比两种分配方案，请稍候…'
+  }
   if (phase.startsWith('gear')) {
     return `正在求解装备${info.gear ?? '?'}/${info.total ?? 4}…`
   }
@@ -821,7 +831,7 @@ function requestCompute(payload) {
     type: payload.type,
     current: payload.current,
     target: payload.target,
-    options: { p: keyP.value },
+    options: { p: keyP.value, usePrecise: usePrecise.value },
   })
 }
 
@@ -908,7 +918,7 @@ function runCompare(type, current, target) {
       type,
       current,
       target,
-      options: { p: keyP.value },
+      options: { p: keyP.value, usePrecise: usePrecise.value },
     })
   })
 }
