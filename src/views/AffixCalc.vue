@@ -246,7 +246,7 @@
               </div>
             </div>
             <div class="add-row">
-              <el-button color="#1fa2ff" plain :disabled="characterTargets.length >= 5" @click="addTarget(characterTargets, 5)">+ 添加目标词条</el-button>
+              <el-button color="#1fa2ff" plain :disabled="characterTargets.length >= 5" @click="addTarget(characterTargets, 5, 44)">+ 添加目标词条</el-button>
             </div>
             <div class="rule-note">
               校验规则：单个目标（含合并词条）总阶数 ≤ 60；全部目标总阶数 ≤ 180；各目标阶数 ÷15 向上取整后相加 ≤ 12（即四件装备共 12 栏）。
@@ -525,12 +525,13 @@ const activeTab = ref('single')
 const blankSlot = () => ({ effect: 'wd', tier: 0, locked: false })
 const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()] })
 // 目标：effects 为多选词条代号数组（同一行多选合并为同一目标）
-const blankTarget = () => ({ effects: [], tier: 13 })
+// 单装备默认 13 阶；角色目标默认 44 阶（13 阶对角色来说太低）
+const blankTarget = (tier = 13) => ({ effects: [], tier })
 
 const singleGear = ref(blankGear())
 const characterGears = ref([blankGear(), blankGear(), blankGear(), blankGear()])
 const singleTargets = ref([blankTarget()])
-const characterTargets = ref([blankTarget()])
+const characterTargets = ref([blankTarget(44)])
 
 // 秘钥使用概率阈值 p（0~1，默认 0.1）：
 // 秘钥策略下，仅当本次洗练有超过 p 的概率到达更优状态时才使用秘钥锁
@@ -606,9 +607,9 @@ function availableEffects(targets, index) {
   return EFFECTS.filter(e => !taken.includes(e.code))
 }
 
-function addTarget(targets, max) {
+function addTarget(targets, max, tier = 13) {
   if (targets.length >= max) return
-  targets.push(blankTarget())
+  targets.push(blankTarget(tier))
 }
 
 function removeTarget(targets, index) {

@@ -321,7 +321,8 @@ const gearNames = ['一', '二', '三', '四']
 
 const blankSlot = () => ({ effect: 'wd', tier: 0 })
 // 目标：effects 为多选词条代号数组（同一行多选合并为同一目标）
-const blankTarget = () => ({ effects: [], tier: 13 })
+// 单装备默认 13 阶；角色目标默认 44 阶（13 阶对角色来说太低）
+const blankTarget = (tier = 13) => ({ effects: [], tier })
 const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()], locks: {} })
 
 const effectOptions = [
@@ -539,7 +540,7 @@ function onCustomLockChange(gear, si, val) {
 function addCustomTarget() {
   const max = mode.value === 'single' ? 3 : 5
   if (customTargets.value.length >= max) return
-  customTargets.value.push(blankTarget())
+  customTargets.value.push(blankTarget(mode.value === 'character' ? 44 : 13))
 }
 
 function removeCustomTarget(i) {
@@ -920,12 +921,12 @@ function diffClass(x) {
 }
 
 watch(mode, () => {
-  customTargets.value = [blankTarget()]
+  customTargets.value = [blankTarget(mode.value === 'character' ? 44 : 13)]
   customError.value = ''
 })
 
 watch(simMode, () => {
-  customTargets.value = [blankTarget()]
+  customTargets.value = [blankTarget(mode.value === 'character' ? 44 : 13)]
   customError.value = ''
 })
 
