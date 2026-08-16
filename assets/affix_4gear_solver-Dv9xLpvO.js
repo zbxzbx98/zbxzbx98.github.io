@@ -95,6 +95,13 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       ? options.p
       : 0.1;
 
+  /**
+   * 是否启用“更精确策略计算”（改进分配候选对比）。
+   * 默认开启；关闭后使用原始快速启发式分配（更快，但在已有高阶词条时
+   * 分配可能不是最优，甚至比空装备更贵）。
+   */
+  const usePrecise = options.usePrecise !== false;
+
   /* ========================================================
    * 1. 解析目标
    * ======================================================== */
@@ -469,46 +476,121 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     };
     if (deficit.every(d => d <= 0)) return d0result;
 
-    // 分配：A[g][j] = 装备 g 是否承担目标 j
-    const A = cur.map(row => row.map(v => v > 0));
-    const distinctCount = A.map(row => row.filter(Boolean).length);
+    // ==================== 候选分配（改进版） ====================
 
-    const load = g => cur[g].reduce((a, b) => a + b, 0);
-    const capFor = j => {
-      let cap = 0;
-      for (let g = 0; g < n; g++) {
-        if (A[g][j]) cap += 15 - cur[g][j];
-      }
-      return cap;
-    };
-    const addGear = j => {
-      let best = -1;
-      let bestScore = Infinity;
-      for (let g = 0; g < n; g++) {
-        if (A[g][j] || distinctCount[g] >= 3) continue;
-        const score = load(g) + distinctCount[g] * 1000;
-        if (score < bestScore) {
-          bestScore = score;
-          best = g;
+    // 装备状态系数：在该装备上新增洗练工作的相对代价
+    // （高阶已有目标难动、空槽/低阶可洗的便宜）
+    function gearFactor(g) {
+      const st = localStates[originalStartLocalIds[g]];
+      let f = 1;
+      for (const code of st.slots) {
+        if (code === 0) { f -= 0.15; continue; }
+        if (isTargetCode(code)) {
+          const { value } = decodeTargetCode(code);
+          if (value >= 11) f += 1.4;
+          else if (value >= 6) f += 0.6;
+          else f += 0.2;
+        } else {
+          f += 0.4;
         }
       }
-      if (best === -1) {
-        throw new Error('目标词条栏位不足：4件装备共12栏无法承载当前目标，请降低目标。');
-      }
-      A[best][j] = true;
-      distinctCount[best]++;
-    };
-
-    // 1) 先保证被分配到的装备有足够容量承载缺口
-    for (let j = 0; j < m; j++) {
-      let guard = 0;
-      while (deficit[j] > capFor(j)) {
-        if (++guard > 64) break;
-        addGear(j);
-      }
+      return Math.max(0.5, f);
     }
 
-    // 2) 概率加权成本表决定每个目标“拆给几件装备”最划算
+    /**
+     * 改进分配：
+     * 1) 每个目标摊薄到尽量 ≤11 阶（11 阶以上进入 1% 概率档，代价陡增），
+     *    至少覆盖“已有 ≥11 阶贡献”的承诺载体；
+     * 2) 选择承担装备时考虑装备状态（便宜的优先，贵重的尽量不动），
+     *    已有该目标的装备优先保留现有贡献；
+     * 3) 允许把低价值现有贡献洗掉重新分配（sub 可低于 cur）。
+     *
+     * 返回 sub 矩阵；槽位不足等不可行情况返回 null（调用方回退到原始分配）。
+     */
+    function buildAllocationImproved() {
+      const factors = [];
+      for (let g = 0; g < n; g++) factors.push(gearFactor(g));
+
+      // kBest：每件目标 ≤ 11 阶，且至少覆盖 committed 载体，总槽位 ≤ 12
+      const kBest = new Array(m).fill(0);
+      for (let j = 0; j < m; j++) {
+        if (deficit[j] <= 0) { kBest[j] = 0; continue; }
+        let committed = 0;
+        for (let g = 0; g < n; g++) if (cur[g][j] >= 11) committed++;
+        kBest[j] = Math.max(committed, Math.ceil(targets[j].req / 11));
+        if (kBest[j] > 4) kBest[j] = 4;
+      }
+      if (kBest.reduce((a, b) => a + b, 0) > 3 * n) return null;
+
+      // 分配承担装备：按需求降序，每目标选 kBest[j] 件
+      const A = cur.map(row => row.map(() => false));
+      const cnt = new Array(n).fill(0);
+      const order = targets.map((_, j) => j).sort((a, b) => targets[b].req - targets[a].req);
+      for (const j of order) {
+        let need = kBest[j];
+        let guard = 0;
+        while (need > 0) {
+          if (++guard > 64) return null;
+          let best = -1;
+          let bestScore = Infinity;
+          for (let g = 0; g < n; g++) {
+            if (A[g][j] || cnt[g] >= 3) continue;
+            let score = factors[g];
+            if (cur[g][j] > 0) score -= 1.5;
+            if (cur[g][j] >= 11) score -= 1;
+            if (score < bestScore) { bestScore = score; best = g; }
+          }
+          if (best === -1) return null;
+          A[best][j] = true;
+          cnt[best]++;
+          need--;
+        }
+      }
+
+      // 阶数：已承担目标先保留现有贡献，其余缺口摊分
+      const sub = cur.map(row => row.slice());
+      for (let g = 0; g < n; g++) {
+        for (let j = 0; j < m; j++) {
+          if (!A[g][j]) sub[g][j] = 0;
+        }
+      }
+      const rem = targets.map((t, j) => t.req - sub.reduce((s, row) => s + row[j], 0));
+      for (let j = 0; j < m; j++) {
+        let left = rem[j];
+        let guard = 0;
+        while (left > 0) {
+          if (++guard > 300) return null;
+          let best = -1;
+          let bestScore = Infinity;
+          for (let g = 0; g < n; g++) {
+            if (!A[g][j] || sub[g][j] >= 15) continue;
+            const score = sub[g][j] * 100 + sub[g].reduce((a, b) => a + b, 0);
+            if (score < bestScore) { bestScore = score; best = g; }
+          }
+          if (best === -1) return null;
+          sub[best][j]++;
+          left--;
+        }
+      }
+      return sub;
+    }
+
+    // 改进候选：仅当启用了精确策略且当前状态存在“有价值的现有目标”（≥11 阶）时
+    // 才考虑；空装备/低阶状态原始分配已足够好，避免无谓的候选对比开销
+    const hasHighExisting = (() => {
+      for (let g = 0; g < n; g++) {
+        for (let j = 0; j < m; j++) {
+          if (cur[g][j] >= 11) return true;
+        }
+      }
+      return false;
+    })();
+    const improvedSub = usePrecise && hasHighExisting ? buildAllocationImproved() : null;
+
+    // 分配：A[g][j] = 装备 g 是否承担目标 j（已有贡献的装备固定保留）
+    const A = cur.map(row => row.map(v => v > 0));
+
+    // 1) 概率加权成本表决定每个目标“拆给几件装备”最划算
     //
     // 单装备从空状态洗到“某效果 ≥ t 阶”的期望石头成本（由单装备
     // 精确求解器预计算）：下标 = 阶数 - 1。
@@ -538,6 +620,9 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       return k * C[Math.ceil(targets[j].req / k) - 1];
     };
 
+    // 每个目标至少 ceil(req/15) 件装备才能承载其总阶数（容量下界）。
+    // 已有贡献的装备（cur>0）固定保留，容量缺口 = 新增装备数 × 15，
+    // 故 kBest[j] ≥ ceil(req/15) 时容量必然足够。
     const kBest = new Array(m).fill(0);
     for (let j = 0; j < m; j++) {
       if (deficit[j] <= 0) {
@@ -576,13 +661,75 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       totalAssign--;
     }
 
-    // 3) 按 kBest 分配装备：需求大的目标优先，其余选“负载最小”的装备
-    const order = targets
-      .map((_, j) => j)
-      .sort((a, b) => targets[b].req - targets[a].req);
-    for (const j of order) {
-      while (curCnt(j) < kBest[j]) addGear(j);
+    // 2) 一次性分配装备：回溯搜索给每个目标选定 kBest[j] 件装备。
+    //    不再“先按容量、再按 kBest 扩张”两步贪心——两步贪心会互相
+    //    抢占栏位，对可行目标误报“栏位不足”。放不下时逐步回退到容量
+    //    下界（minRequiredSlots ≤ 12 时必然可行，不会误报）。
+    const factorsForAssign = [];
+    for (let g = 0; g < n; g++) factorsForAssign.push(gearFactor(g));
+
+    function tryAssign(needArr) {
+      const mat = cur.map(row => row.map(v => v > 0));
+      const cnt = new Array(m).fill(0);
+      for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) if (mat[g][j]) cnt[j]++;
+      const freeSlots = mat.map((row, g) => 3 - row.reduce((s, x) => s + (x ? 1 : 0), 0));
+
+      // 缺口大的目标优先，其次按总需求降序
+      const order = targets.map((_, j) => j).sort((a, b) =>
+        (Math.max(0, needArr[b] - cnt[b]) - Math.max(0, needArr[a] - cnt[a])) ||
+        (targets[b].req - targets[a].req)
+      );
+
+      function dfs(k) {
+        if (k === m) return true;
+        const j = order[k];
+        if (cnt[j] >= needArr[j]) return dfs(k + 1);
+        const cands = [];
+        for (let g = 0; g < n; g++) {
+          if (!mat[g][j] && freeSlots[g] > 0) cands.push(g);
+        }
+        // 优先剩余栏位多、洗练代价低的装备
+        cands.sort((a, b) =>
+          (freeSlots[b] - freeSlots[a]) ||
+          (factorsForAssign[a] - factorsForAssign[b]) ||
+          (a - b)
+        );
+        for (const g of cands) {
+          mat[g][j] = true; freeSlots[g]--; cnt[j]++;
+          if (dfs(k)) return true;
+          mat[g][j] = false; freeSlots[g]++; cnt[j]--;
+        }
+        return false;
+      }
+      return dfs(0) ? mat : null;
     }
+
+    let assigned = tryAssign(kBest);
+    if (!assigned) {
+      // 从 kBest 逐步回退（优先砍“多拆一件边际收益最小”的目标），最坏退到容量下界
+      const minNeed = targets.map((t, j) =>
+        deficit[j] <= 0 ? curCnt(j) : Math.max(curCnt(j), Math.ceil(t.req / 15))
+      );
+      const curNeed = kBest.slice();
+      while (!assigned) {
+        let bestJ = -1;
+        let bestPenalty = Infinity;
+        for (let j = 0; j < m; j++) {
+          if (curNeed[j] <= minNeed[j]) continue;
+          const pen = proxyCost(j, curNeed[j] - 1) - proxyCost(j, curNeed[j]);
+          if (pen < bestPenalty) { bestPenalty = pen; bestJ = j; }
+        }
+        if (bestJ === -1) break;
+        curNeed[bestJ]--;
+        assigned = tryAssign(curNeed);
+      }
+      if (!assigned) assigned = tryAssign(minNeed);
+    }
+
+    if (!assigned) {
+      throw new Error('目标词条栏位不足：4件装备共12栏无法承载当前目标，请降低目标。');
+    }
+    for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) A[g][j] = assigned[g][j];
 
     // 4) 逐级分配阶数：同一目标在承担它的装备间尽量摊平
     //    （优先降低每件装备该目标的需求值，避免把某件装备推到
@@ -612,7 +759,74 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       }
     }
 
-    // 5) 对每件装备用单装备精确求解器求解其子目标
+    // 5) 候选评估：宽松精度快速排序，胜者再用精确精度求解用于展示
+    const gearCostCache = new Map();
+    const LOOSE_EPS = 1e-3;
+
+    // 求解单件装备子目标；已满足/无子目标时直接 0 成本（不调用求解器）
+    function evalGear(g, subArr, eps) {
+      const subs = [];
+      let work = 0;
+      for (let j = 0; j < m; j++) {
+        if (subArr[g][j] > 0) subs.push(targets[j].name + subArr[g][j]);
+        work += Math.max(0, subArr[g][j] - cur[g][j]);
+      }
+      if (subs.length === 0 || work === 0) {
+        return {
+          cost: '0/0-0',
+          action: 'd0',
+          stoneOnlyAction: 'd0',
+          preUnlock: [],
+          stoneOnlyPreUnlock: [],
+          expected: { stoneOnly: 0, withKeysStone: 0, withKeysKeys: 0 },
+        };
+      }
+      const key = (eps < 1e-6 ? 'L' : 'P') + g + '|' + subs.join(',');
+      if (gearCostCache.has(key)) return gearCostCache.get(key);
+      // 仅精确求解阶段上报装备进度（宽松评估阶段不打扰用户）
+      if (progress && eps < 1e-6) progress({ phase: 'gear', gear: g + 1, total: n });
+      const r = solveGear(gearTexts[g], subs.join(','), {
+        epsilon: eps,
+        maxIterations: options.maxIterations ?? 10000,
+        digits: eps < 1e-6 ? 4 : digitsOpt,
+        // 秘钥使用概率阈值透传给单装备求解器
+        p: options.p ?? 0.1,
+      });
+      gearCostCache.set(key, r);
+      return r;
+    }
+
+    function stoneOf(r) {
+      const mm = String(r.cost || '').match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/);
+      return mm ? parseFloat(mm[1]) : 0;
+    }
+
+    // 生成候选（原始分配 sub + 改进候选 improvedSub）
+    const candidates = improvedSub ? [sub, improvedSub] : [sub];
+    const candidatesDiffer = candidates.length > 1 && JSON.stringify(improvedSub) !== JSON.stringify(sub);
+
+    // 选最优候选：候选不同时用宽松精度快速排序，胜者再用精确精度求解展示
+    let bestSub = sub;
+    if (candidatesDiffer) {
+      if (progress) progress({ phase: 'compare' });
+      const looseTotals = candidates.map(cand => {
+        let t = 0;
+        for (let g = 0; g < n; g++) t += stoneOf(evalGear(g, cand, LOOSE_EPS));
+        return t;
+      });
+      let bestIdx = 0;
+      for (let i = 1; i < candidates.length; i++) {
+        if (looseTotals[i] < looseTotals[bestIdx] - 0.5) bestIdx = i;
+      }
+      // 两个候选差距很小（<5 石头）时用精确值复核，避免宽松精度误判
+      if (Math.abs(looseTotals[0] - looseTotals[1]) < 5) {
+        const p0 = (() => { let t = 0; for (let g = 0; g < n; g++) t += stoneOf(evalGear(g, candidates[0], 1e-9)); return t; })();
+        const p1 = (() => { let t = 0; for (let g = 0; g < n; g++) t += stoneOf(evalGear(g, candidates[1], 1e-9)); return t; })();
+        bestIdx = p1 < p0 - 1e-9 ? 1 : 0;
+      }
+      bestSub = candidates[bestIdx];
+    }
+
     const fmtCost = x => {
       if (Math.abs(x - Math.round(x)) < 1e-9) return String(Math.round(x));
       return x.toFixed(digitsOpt).replace(/0+$/, '').replace(/\.$/, '');
@@ -630,43 +844,25 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       const subs = [];
       let work = 0;
       for (let j = 0; j < m; j++) {
-        if (sub[g][j] > 0) subs.push(targets[j].name + sub[g][j]);
-        work += Math.max(0, sub[g][j] - cur[g][j]);
+        if (bestSub[g][j] > 0) subs.push(targets[j].name + bestSub[g][j]);
+        work += Math.max(0, bestSub[g][j] - cur[g][j]);
       }
-
-      if (work > 0) {
-        if (progress) progress({ phase: 'gear', gear: g + 1, total: n });
-        const r = solveGear(gearTexts[g], subs.join(','), {
-          epsilon: options.epsilon ?? 1e-9,
-          maxIterations: options.maxIterations ?? 10000,
-          digits: digitsOpt,
-          // 秘钥使用概率阈值透传给单装备求解器
-          p: options.p ?? 0.1,
-        });
-        gearResults[g] = r;
-        const mm = String(r.cost).match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/);
-        totalStone += mm ? parseFloat(mm[1]) : 0;
-        totalKeyStone += mm ? parseFloat(mm[2]) : 0;
-        totalKeys += mm ? parseFloat(mm[3]) : 0;
-        detail.push({
-          gear: g + 1,
-          current: gearTexts[g],
-          subTargets: subs.join(','),
-          cost: r.cost,
-          action: r.action,
-        });
-        if (work > chosenWork) {
-          chosenWork = work;
-          chosen = g;
-        }
-      } else {
-        detail.push({
-          gear: g + 1,
-          current: gearTexts[g],
-          subTargets: subs.join(','),
-          cost: '0/0-0',
-          action: 'd0',
-        });
+      const r = evalGear(g, bestSub, 1e-9);
+      gearResults[g] = r;
+      const mm = String(r.cost || '').match(/^([\d.]+)\/([\d.]+)-([\d.]+)$/);
+      totalStone += mm ? parseFloat(mm[1]) : 0;
+      totalKeyStone += mm ? parseFloat(mm[2]) : 0;
+      totalKeys += mm ? parseFloat(mm[3]) : 0;
+      detail.push({
+        gear: g + 1,
+        current: gearTexts[g],
+        subTargets: subs.join(','),
+        cost: r.cost || '0/0-0',
+        action: r.action || 'd0',
+      });
+      if (work > chosenWork) {
+        chosenWork = work;
+        chosen = g;
       }
     }
 
