@@ -587,46 +587,10 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     })();
     const improvedSub = usePrecise && hasHighExisting ? buildAllocationImproved() : null;
 
-    // 分配：A[g][j] = 装备 g 是否承担目标 j
+    // 分配：A[g][j] = 装备 g 是否承担目标 j（已有贡献的装备固定保留）
     const A = cur.map(row => row.map(v => v > 0));
-    const distinctCount = A.map(row => row.filter(Boolean).length);
 
-    const load = g => cur[g].reduce((a, b) => a + b, 0);
-    const capFor = j => {
-      let cap = 0;
-      for (let g = 0; g < n; g++) {
-        if (A[g][j]) cap += 15 - cur[g][j];
-      }
-      return cap;
-    };
-    const addGear = j => {
-      let best = -1;
-      let bestScore = Infinity;
-      for (let g = 0; g < n; g++) {
-        if (A[g][j] || distinctCount[g] >= 3) continue;
-        const score = load(g) + distinctCount[g] * 1000;
-        if (score < bestScore) {
-          bestScore = score;
-          best = g;
-        }
-      }
-      if (best === -1) {
-        throw new Error('目标词条栏位不足：4件装备共12栏无法承载当前目标，请降低目标。');
-      }
-      A[best][j] = true;
-      distinctCount[best]++;
-    };
-
-    // 1) 先保证被分配到的装备有足够容量承载缺口
-    for (let j = 0; j < m; j++) {
-      let guard = 0;
-      while (deficit[j] > capFor(j)) {
-        if (++guard > 64) break;
-        addGear(j);
-      }
-    }
-
-    // 2) 概率加权成本表决定每个目标“拆给几件装备”最划算
+    // 1) 概率加权成本表决定每个目标“拆给几件装备”最划算
     //
     // 单装备从空状态洗到“某效果 ≥ t 阶”的期望石头成本（由单装备
     // 精确求解器预计算）：下标 = 阶数 - 1。
@@ -656,6 +620,9 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       return k * C[Math.ceil(targets[j].req / k) - 1];
     };
 
+    // 每个目标至少 ceil(req/15) 件装备才能承载其总阶数（容量下界）。
+    // 已有贡献的装备（cur>0）固定保留，容量缺口 = 新增装备数 × 15，
+    // 故 kBest[j] ≥ ceil(req/15) 时容量必然足够。
     const kBest = new Array(m).fill(0);
     for (let j = 0; j < m; j++) {
       if (deficit[j] <= 0) {
@@ -694,13 +661,75 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       totalAssign--;
     }
 
-    // 3) 按 kBest 分配装备：需求大的目标优先，其余选“负载最小”的装备
-    const order = targets
-      .map((_, j) => j)
-      .sort((a, b) => targets[b].req - targets[a].req);
-    for (const j of order) {
-      while (curCnt(j) < kBest[j]) addGear(j);
+    // 2) 一次性分配装备：回溯搜索给每个目标选定 kBest[j] 件装备。
+    //    不再“先按容量、再按 kBest 扩张”两步贪心——两步贪心会互相
+    //    抢占栏位，对可行目标误报“栏位不足”。放不下时逐步回退到容量
+    //    下界（minRequiredSlots ≤ 12 时必然可行，不会误报）。
+    const factorsForAssign = [];
+    for (let g = 0; g < n; g++) factorsForAssign.push(gearFactor(g));
+
+    function tryAssign(needArr) {
+      const mat = cur.map(row => row.map(v => v > 0));
+      const cnt = new Array(m).fill(0);
+      for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) if (mat[g][j]) cnt[j]++;
+      const freeSlots = mat.map((row, g) => 3 - row.reduce((s, x) => s + (x ? 1 : 0), 0));
+
+      // 缺口大的目标优先，其次按总需求降序
+      const order = targets.map((_, j) => j).sort((a, b) =>
+        (Math.max(0, needArr[b] - cnt[b]) - Math.max(0, needArr[a] - cnt[a])) ||
+        (targets[b].req - targets[a].req)
+      );
+
+      function dfs(k) {
+        if (k === m) return true;
+        const j = order[k];
+        if (cnt[j] >= needArr[j]) return dfs(k + 1);
+        const cands = [];
+        for (let g = 0; g < n; g++) {
+          if (!mat[g][j] && freeSlots[g] > 0) cands.push(g);
+        }
+        // 优先剩余栏位多、洗练代价低的装备
+        cands.sort((a, b) =>
+          (freeSlots[b] - freeSlots[a]) ||
+          (factorsForAssign[a] - factorsForAssign[b]) ||
+          (a - b)
+        );
+        for (const g of cands) {
+          mat[g][j] = true; freeSlots[g]--; cnt[j]++;
+          if (dfs(k)) return true;
+          mat[g][j] = false; freeSlots[g]++; cnt[j]--;
+        }
+        return false;
+      }
+      return dfs(0) ? mat : null;
     }
+
+    let assigned = tryAssign(kBest);
+    if (!assigned) {
+      // 从 kBest 逐步回退（优先砍“多拆一件边际收益最小”的目标），最坏退到容量下界
+      const minNeed = targets.map((t, j) =>
+        deficit[j] <= 0 ? curCnt(j) : Math.max(curCnt(j), Math.ceil(t.req / 15))
+      );
+      const curNeed = kBest.slice();
+      while (!assigned) {
+        let bestJ = -1;
+        let bestPenalty = Infinity;
+        for (let j = 0; j < m; j++) {
+          if (curNeed[j] <= minNeed[j]) continue;
+          const pen = proxyCost(j, curNeed[j] - 1) - proxyCost(j, curNeed[j]);
+          if (pen < bestPenalty) { bestPenalty = pen; bestJ = j; }
+        }
+        if (bestJ === -1) break;
+        curNeed[bestJ]--;
+        assigned = tryAssign(curNeed);
+      }
+      if (!assigned) assigned = tryAssign(minNeed);
+    }
+
+    if (!assigned) {
+      throw new Error('目标词条栏位不足：4件装备共12栏无法承载当前目标，请降低目标。');
+    }
+    for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) A[g][j] = assigned[g][j];
 
     // 4) 逐级分配阶数：同一目标在承担它的装备间尽量摊平
     //    （优先降低每件装备该目标的需求值，避免把某件装备推到
