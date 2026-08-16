@@ -239,8 +239,8 @@
                 <el-select v-model="t.effects" multiple style="width: 220px" placeholder="选择词条（可多选）">
                   <el-option v-for="e in availableEffects(characterTargets, i)" :key="e.code" :label="e.name" :value="e.code" />
                 </el-select>
-                <el-select v-model="t.tier" style="width: 170px" :disabled="!t.effects || !t.effects.length" placeholder="选择总阶数">
-                  <el-option v-for="n in 60" :key="n" :label="`阶数${n}`" :value="n" />
+                <el-select v-model="t.tier" style="width: 230px" :disabled="!t.effects || !t.effects.length" placeholder="选择总阶数">
+                  <el-option v-for="opt in charTierOptions(t.effects)" :key="opt.value" :label="opt.label" :value="opt.value" />
                 </el-select>
                 <el-button v-if="characterTargets.length > 1" text type="danger" @click="removeTarget(characterTargets, i)">删除</el-button>
               </div>
@@ -452,6 +452,7 @@ import { ElMessage } from 'element-plus'
 import * as THREE from 'three'
 import NET from 'vanta/src/vanta.net'
 import AffixSimulator from '../components/AffixSimulator.vue'
+import { CHAR_TIER_RANGES } from '../affix_tier_ranges.js'
 
 /* ==================== 词条与数值常量（来自《代号规定和已有算法.txt》） ==================== */
 
@@ -579,6 +580,19 @@ function tierOptions(effect) {
     value: idx + 1,
     label: merged ? `阶数${idx + 1}` : `阶数${idx + 1}（${v}）`,
   }))
+}
+
+// 角色目标总阶数选项（1~60）：仅单选一个词条时显示数值范围，
+// 如 阶数15（29.16%~53.58%）；多选合并时只显示阶数
+function charTierOptions(effects) {
+  const codes = Array.isArray(effects) ? effects : (effects ? [effects] : [])
+  const single = codes.length === 1 ? codes[0] : null
+  const ranges = single ? (CHAR_TIER_RANGES[single] || null) : null
+  return Array.from({ length: 60 }, (_, i) => {
+    const n = i + 1
+    const range = ranges ? ranges[i] : null
+    return { value: n, label: range ? `阶数${n}（${range}）` : `阶数${n}` }
+  })
 }
 
 // 其他目标行已选用的词条不可再选（全局不允许重复）
