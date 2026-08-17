@@ -449,7 +449,7 @@
       </el-tabs>
 
       <!-- ==================== 阿卡第三方 API 对话框 ==================== -->
-      <el-dialog v-model="akaDialogVisible" title="读取阿卡数据" width="680px">
+      <el-dialog v-model="akaDialogVisible" title="读取阿卡数据" width="min(680px, 94vw)">
         <div class="aka-api-row">
           <el-input
             v-model="akaApiKey"
@@ -1917,6 +1917,12 @@ code {
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .aka-api-row > .el-input {
+    flex: 1 1 100% !important;
+  }
 }
 
 .aka-error {
