@@ -457,7 +457,7 @@
           <el-button plain @click="saveAkaApiKey()">保存 Key</el-button>
           <el-button color="#1fa2ff" :loading="akaLoading" :disabled="!akaApiKey.trim()" @click="fetchAkaCharacters">获取角色数据</el-button>
         </div>
-        <p class="note">输入 API Key 后才能获取数据；Key 会保存在 B站云存储（跟随账号），非 B站环境则保存在浏览器本地缓存。</p>
+        <p class="note">输入 API Key 后才能获取数据；Key 会保存在浏览器本地缓存。</p>
 
         <div v-if="akaError" class="aka-error">{{ akaError }}</div>
 
@@ -809,18 +809,8 @@ function characterInfoToGears(equipmentInfos) {
   return gears
 }
 
-// 读取/保存 API Key：B站环境走云存储（跟随账号），否则浏览器本地缓存
+// 读取/保存 API Key：浏览器本地缓存
 async function loadAkaApiKey() {
-  if (typeof window !== 'undefined' && window.toy) {
-    try {
-      const ok = await window.toy.isSupport('getCloudStorage')
-      if (ok) {
-        const all = await window.toy.getCloudStorage([AKA_KEY_STORAGE_KEY])
-        const raw = all && all[AKA_KEY_STORAGE_KEY]
-        if (raw) return String(raw)
-      }
-    } catch (e) { /* 未登录等，回退本地缓存 */ }
-  }
   try {
     return localStorage.getItem(AKA_KEY_STORAGE_KEY) || ''
   } catch (e) { return '' }
@@ -832,25 +822,13 @@ async function saveAkaApiKey(silent = false) {
     if (!silent) ElMessage.warning('请输入 API Key')
     return false
   }
-  let savedTo = 'local'
-  if (typeof window !== 'undefined' && window.toy) {
-    try {
-      const ok = await window.toy.isSupport('setCloudStorage')
-      if (ok) {
-        await window.toy.setCloudStorage({ [AKA_KEY_STORAGE_KEY]: key })
-        savedTo = 'cloud'
-      }
-    } catch (e) { /* 回退本地缓存 */ }
+  try {
+    localStorage.setItem(AKA_KEY_STORAGE_KEY, key)
+  } catch (e) {
+    if (!silent) ElMessage.error('API Key 保存失败')
+    return false
   }
-  if (savedTo !== 'cloud') {
-    try {
-      localStorage.setItem(AKA_KEY_STORAGE_KEY, key)
-    } catch (e) {
-      if (!silent) ElMessage.error('API Key 保存失败')
-      return false
-    }
-  }
-  if (!silent) ElMessage.success(savedTo === 'cloud' ? 'API Key 已保存（B站云存储）' : 'API Key 已保存（本地缓存）')
+  if (!silent) ElMessage.success('API Key 已保存（本地缓存）')
   return true
 }
 
