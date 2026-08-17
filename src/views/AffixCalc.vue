@@ -13,6 +13,15 @@
       <el-tabs v-model="activeTab" type="border-card" class="main-tabs">
         <!-- ==================== 单装备词条计算 ==================== -->
         <el-tab-pane label="单装备词条计算" name="single">
+          <div class="panel save-panel">
+            <h3 class="panel-title">存档/读取</h3>
+            <div class="save-row">
+              <el-button color="#1fa2ff" @click="openAkaDialog">读取阿卡数据</el-button>
+              <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
+            </div>
+            <p class="note">「读取阿卡数据」从阿卡拉取角色装备并加载到当前装备；「保存到阿卡」将当前装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+          </div>
+
           <div class="panel">
             <h2 class="panel-title">① 当前装备状态</h2>
             <p class="panel-note">按栏位选择已有词条与阶数；一号栏位选择「空词条」时视为全新装备，其余栏位自动置空且不可更改。每件装备最多锁定 2 个栏位。</p>
@@ -198,6 +207,15 @@
 
         <!-- ==================== 角色装备词条计算 ==================== -->
         <el-tab-pane label="角色装备词条计算" name="character">
+          <div class="panel save-panel">
+            <h3 class="panel-title">存档/读取</h3>
+            <div class="save-row">
+              <el-button color="#1fa2ff" @click="openAkaDialog">读取阿卡数据</el-button>
+              <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
+            </div>
+            <p class="note">「读取阿卡数据」从阿卡拉取角色并直接加载四件装备；「保存到阿卡」将四件装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+          </div>
+
           <div class="panel">
             <h2 class="panel-title">① 四件装备当前状态</h2>
             <p class="panel-note">每件装备的选择规则与单装备一致；目标按四件装备属性合计计算。</p>
@@ -422,6 +440,53 @@
         </el-tab-pane>
       </el-tabs>
 
+      <!-- ==================== 阿卡第三方 API 对话框 ==================== -->
+      <el-dialog v-model="akaDialogVisible" title="读取阿卡数据" width="680px">
+        <div class="aka-api-row">
+          <el-input
+            v-model="akaApiKey"
+            type="password"
+            show-password
+            clearable
+            placeholder="请输入阿卡 API Key"
+            style="flex: 1;"
+            @keyup.enter="fetchAkaCharacters"
+          />
+          <el-button plain @click="saveAkaApiKey()">保存 Key</el-button>
+          <el-button color="#1fa2ff" :loading="akaLoading" :disabled="!akaApiKey.trim()" @click="fetchAkaCharacters">获取角色数据</el-button>
+        </div>
+        <p class="note">输入 API Key 后才能获取数据；Key 会保存在 B站云存储（跟随账号），非 B站环境则保存在浏览器本地缓存。</p>
+
+        <div v-if="akaError" class="aka-error">{{ akaError }}</div>
+
+        <div v-if="akaCharacters.length === 0" class="save-empty">
+          {{ akaApiKey.trim() ? '暂无角色数据，请点击「获取角色数据」' : '请先输入 API Key' }}
+        </div>
+
+        <!-- 角色版：一个角色一个按钮，点击直接加载四件装备 -->
+        <div v-else-if="activeTab === 'character'" class="aka-char-grid">
+          <el-button v-for="c in akaCharacters" :key="c.characterName" @click="loadAkaCharacter(c)">{{ c.characterName }}</el-button>
+        </div>
+
+        <!-- 单装备版：先选角色，再从 4 件装备中选一件加载 -->
+        <template v-else>
+          <div class="aka-char-grid">
+            <el-button
+              v-for="c in akaCharacters"
+              :key="c.characterName"
+              :type="akaSelectedChar === c ? 'primary' : ''"
+              @click="akaSelectedChar = c"
+            >{{ c.characterName }}</el-button>
+          </div>
+          <div v-if="akaSelectedChar" class="aka-gear-grid">
+            <div class="aka-gear-title">选择「{{ akaSelectedChar.characterName }}」的装备：</div>
+            <el-button v-for="i in 4" :key="i" @click="loadAkaGear(akaSelectedChar, i - 1)">
+              装备{{ gearNames[i - 1] }}（{{ AKA_SLOT_NAMES[i - 1] }}）
+            </el-button>
+          </div>
+        </template>
+      </el-dialog>
+
       <div class="footer-section">
         <div class="footer-content">
           <div class="instructions">
@@ -452,7 +517,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import * as THREE from 'three'
 import NET from 'vanta/src/vanta.net'
 import AffixSimulator from '../components/AffixSimulator.vue'
@@ -673,6 +738,241 @@ const characterCurrentLines = computed(() =>
 const characterTargetPreview = computed(() =>
   characterTargets.value.filter(t => t.effects && t.effects.length).map(targetToken).join(',')
 )
+
+/* ==================== 阿卡第三方 API 存档 ==================== */
+
+// 阿卡 statNo（词条编号）↔ 计算器词条代号
+// 0 优越、1 命中、2 装弹、3 攻击、4 蓄伤、5 蓄速、6 暴率、7 暴伤、8 防御
+const STAT_NO_TO_CODE = { 0: 'uy', 1: 'mz', 2: 'dr', 3: 'gj', 4: 'xl', 5: 'xs', 6: 'bj', 7: 'bs', 8: 'fy' }
+const CODE_TO_STAT_NO = { uy: 0, mz: 1, dr: 2, gj: 3, xl: 4, xs: 5, bj: 6, bs: 7, fy: 8 }
+const AKA_SLOT_NAMES = ['头', '衣', '手', '鞋']
+
+const AKA_API_BASE = 'https://pinkuro.top:9984/third/bot/nikke/v1'
+const AKA_KEY_STORAGE_KEY = 'affix_aka_apikey'
+const AKA_CHARS_STORAGE_KEY = 'affix_aka_chars'
+
+const akaDialogVisible = ref(false)
+const akaApiKey = ref('')
+const akaCharacters = ref([])
+const akaSelectedChar = ref(null)   // 单装备流程：先选角色
+const akaLoading = ref(false)
+const akaSaving = ref(false)
+const akaError = ref('')
+const akaKeyLoaded = ref(false)     // 是否已从存储加载过 Key
+const loadedAkaSingle = ref(null)   // { characterName, slotNo }
+const loadedAkaChar = ref(null)     // { characterName }
+
+const akaSaveEnabled = computed(() =>
+  activeTab.value === 'single' ? !!loadedAkaSingle.value : !!loadedAkaChar.value
+)
+
+// 词条栏位 -> 阿卡 statInfos
+function gearToStatInfos(slots) {
+  const statInfos = []
+  slots.forEach((slot, i) => {
+    if (slot.effect && slot.effect !== 'wd') {
+      statInfos.push({ index: i + 1, statNo: CODE_TO_STAT_NO[slot.effect], statValueLevel: slot.tier })
+    }
+  })
+  return statInfos
+}
+
+// 阿卡 statInfos -> 词条栏位
+function statInfosToSlots(statInfos) {
+  const slots = [blankSlot(), blankSlot(), blankSlot()]
+  for (const s of statInfos || []) {
+    const code = STAT_NO_TO_CODE[s.statNo]
+    if (code && s.index >= 1 && s.index <= 3) {
+      slots[s.index - 1] = { effect: code, tier: Number(s.statValueLevel) || 0, locked: false }
+    }
+  }
+  return slots
+}
+
+function characterInfoToGears(equipmentInfos) {
+  const gears = [blankGear(), blankGear(), blankGear(), blankGear()]
+  for (const info of equipmentInfos || []) {
+    const idx = Number(info.slotNo)
+    if (idx >= 0 && idx < 4) gears[idx] = { slots: statInfosToSlots(info.statInfos) }
+  }
+  return gears
+}
+
+// 读取/保存 API Key：B站环境走云存储（跟随账号），否则浏览器本地缓存
+async function loadAkaApiKey() {
+  if (typeof window !== 'undefined' && window.toy) {
+    try {
+      const ok = await window.toy.isSupport('getCloudStorage')
+      if (ok) {
+        const all = await window.toy.getCloudStorage([AKA_KEY_STORAGE_KEY])
+        const raw = all && all[AKA_KEY_STORAGE_KEY]
+        if (raw) return String(raw)
+      }
+    } catch (e) { /* 未登录等，回退本地缓存 */ }
+  }
+  try {
+    return localStorage.getItem(AKA_KEY_STORAGE_KEY) || ''
+  } catch (e) { return '' }
+}
+
+async function saveAkaApiKey(silent = false) {
+  const key = akaApiKey.value.trim()
+  if (!key) {
+    if (!silent) ElMessage.warning('请输入 API Key')
+    return false
+  }
+  let savedTo = 'local'
+  if (typeof window !== 'undefined' && window.toy) {
+    try {
+      const ok = await window.toy.isSupport('setCloudStorage')
+      if (ok) {
+        await window.toy.setCloudStorage({ [AKA_KEY_STORAGE_KEY]: key })
+        savedTo = 'cloud'
+      }
+    } catch (e) { /* 回退本地缓存 */ }
+  }
+  if (savedTo !== 'cloud') {
+    try {
+      localStorage.setItem(AKA_KEY_STORAGE_KEY, key)
+    } catch (e) {
+      if (!silent) ElMessage.error('API Key 保存失败')
+      return false
+    }
+  }
+  if (!silent) ElMessage.success(savedTo === 'cloud' ? 'API Key 已保存（B站云存储）' : 'API Key 已保存（本地缓存）')
+  return true
+}
+
+function loadAkaCharsCache() {
+  try {
+    const raw = localStorage.getItem(AKA_CHARS_STORAGE_KEY)
+    if (raw) {
+      const list = JSON.parse(raw)
+      if (Array.isArray(list)) akaCharacters.value = list
+    }
+  } catch (e) { /* 缓存损坏忽略 */ }
+}
+
+async function openAkaDialog() {
+  akaError.value = ''
+  akaSelectedChar.value = null
+  if (!akaKeyLoaded.value) {
+    akaApiKey.value = await loadAkaApiKey()
+    akaKeyLoaded.value = true
+  }
+  loadAkaCharsCache()
+  akaDialogVisible.value = true
+}
+
+async function fetchAkaCharacters() {
+  const key = akaApiKey.value.trim()
+  if (!key) {
+    ElMessage.warning('请先输入 API Key')
+    return
+  }
+  await saveAkaApiKey(true)
+  akaLoading.value = true
+  akaError.value = ''
+  try {
+    const resp = await fetch(AKA_API_BASE + '/getUserStatInfo', {
+      method: 'GET',
+      headers: { 'X-API-KEY': key },
+    })
+    if (resp.status === 403) throw new Error('API Key 无效或已过期（403）')
+    if (!resp.ok) throw new Error('请求失败（HTTP ' + resp.status + '）')
+    const data = await resp.json()
+    if (!data || data.success !== true || !Array.isArray(data.data)) {
+      throw new Error((data && data.message) || '返回数据格式异常')
+    }
+    akaCharacters.value = data.data
+    try { localStorage.setItem(AKA_CHARS_STORAGE_KEY, JSON.stringify(data.data)) } catch (e) { /* 忽略 */ }
+    ElMessage.success('已获取 ' + data.data.length + ' 个角色')
+  } catch (e) {
+    akaError.value = e.message || '请求失败'
+    ElMessage.error(akaError.value)
+  } finally {
+    akaLoading.value = false
+  }
+}
+
+// 角色版：直接加载四件装备
+function loadAkaCharacter(c) {
+  characterGears.value = characterInfoToGears(c.equipmentInfos)
+  loadedAkaChar.value = { characterName: c.characterName }
+  result.value = null
+  akaDialogVisible.value = false
+  akaSelectedChar.value = null
+  ElMessage.success('已加载角色「' + c.characterName + '」')
+}
+
+// 单装备版：加载选中的那件装备
+function loadAkaGear(c, slotNo) {
+  const info = (c.equipmentInfos || []).find(x => Number(x.slotNo) === slotNo) || { slotNo, statInfos: [] }
+  singleGear.value = { slots: statInfosToSlots(info.statInfos) }
+  loadedAkaSingle.value = { characterName: c.characterName, slotNo }
+  result.value = null
+  akaDialogVisible.value = false
+  akaSelectedChar.value = null
+  ElMessage.success('已加载「' + c.characterName + '」装备' + gearNames[slotNo])
+}
+
+async function confirmSaveToAka() {
+  if (!akaSaveEnabled.value) {
+    ElMessage.warning('请先通过「读取阿卡数据」加载角色')
+    return
+  }
+  try {
+    await ElMessageBox.confirm('此操作会覆盖阿卡原始数据，请谨慎用此功能', '保存到阿卡', {
+      confirmButtonText: '确认覆盖',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+  } catch (e) { return }
+  await saveToAka()
+}
+
+async function saveToAka() {
+  const isSingle = activeTab.value === 'single'
+  const loaded = isSingle ? loadedAkaSingle.value : loadedAkaChar.value
+  if (!loaded) {
+    ElMessage.warning('请先通过「读取阿卡数据」加载角色')
+    return
+  }
+  const key = akaApiKey.value.trim()
+  if (!key) {
+    ElMessage.warning('缺少 API Key，请先点击「读取阿卡数据」输入')
+    return
+  }
+
+  let equipmentInfos
+  if (isSingle) {
+    equipmentInfos = [{ slotNo: loaded.slotNo ?? 0, statInfos: gearToStatInfos(singleGear.value.slots) }]
+  } else {
+    equipmentInfos = characterGears.value.map((g, idx) => ({
+      slotNo: idx,
+      statInfos: gearToStatInfos(g.slots),
+    }))
+  }
+  const payload = [{ characterName: loaded.characterName, equipmentInfos }]
+
+  akaSaving.value = true
+  try {
+    const resp = await fetch(AKA_API_BASE + '/updateUserCharacter', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-API-KEY': key },
+      body: JSON.stringify(payload),
+    })
+    if (resp.status === 403) throw new Error('API Key 无效或已过期（403）')
+    if (!resp.ok) throw new Error('保存失败（HTTP ' + resp.status + '）')
+    const data = await resp.json().catch(() => ({}))
+    if (data && data.success === false) throw new Error(data.message || '保存失败')
+    ElMessage.success('已保存到阿卡')
+  } catch (e) {
+    ElMessage.error(e.message || '保存失败')
+  } finally {
+    akaSaving.value = false
+  }
+}
 
 /* ==================== 校验 ==================== */
 
@@ -1543,6 +1843,68 @@ code {
   margin: 8px 0 0;
   color: #999;
   font-size: 12px;
+}
+
+/* ==================== 存档/读取 + 阿卡 ==================== */
+
+.save-panel {
+  border: 1px solid #e3ecf7;
+  background: #fbfdff;
+}
+
+.save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.save-empty {
+  text-align: center;
+  color: #909399;
+  padding: 20px 0;
+}
+
+.aka-api-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.aka-error {
+  margin: 12px 0;
+  padding: 8px 12px;
+  color: #f56c6c;
+  background: #fef0f0;
+  border: 1px solid #fde2e2;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.aka-char-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 14px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.aka-gear-grid {
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed #dcdfe6;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.aka-gear-title {
+  width: 100%;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 2px;
 }
 
 .meta-line {
