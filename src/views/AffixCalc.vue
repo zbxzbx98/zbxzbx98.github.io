@@ -20,6 +20,7 @@
               <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
             </div>
             <p class="note">「读取阿卡数据」从阿卡拉取角色装备并加载到当前装备；「保存到阿卡」将当前装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+            <p v-if="akaLoadedLabel" class="note" style="color:#1fa2ff; font-weight:bold;">当前读取：{{ akaLoadedLabel }}</p>
           </div>
 
           <div class="panel">
@@ -214,6 +215,7 @@
               <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
             </div>
             <p class="note">「读取阿卡数据」从阿卡拉取角色并直接加载四件装备；「保存到阿卡」将四件装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+            <p v-if="akaLoadedLabel" class="note" style="color:#1fa2ff; font-weight:bold;">当前读取：{{ akaLoadedLabel }}</p>
           </div>
 
           <div class="panel">
@@ -765,6 +767,15 @@ const loadedAkaChar = ref(null)     // { characterName }
 const akaSaveEnabled = computed(() =>
   activeTab.value === 'single' ? !!loadedAkaSingle.value : !!loadedAkaChar.value
 )
+
+const akaLoadedLabel = computed(() => {
+  if (activeTab.value === 'single') {
+    const l = loadedAkaSingle.value
+    return l ? `${l.characterName}（装备${gearNames[l.slotNo ?? 0]}）` : ''
+  }
+  const l = loadedAkaChar.value
+  return l ? l.characterName : ''
+})
 
 // 词条栏位 -> 阿卡 statInfos
 function gearToStatInfos(slots) {
