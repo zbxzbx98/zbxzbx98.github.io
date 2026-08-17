@@ -17,9 +17,9 @@
             <h3 class="panel-title">存档/读取</h3>
             <div class="save-row">
               <el-button color="#1fa2ff" @click="openAkaDialog">读取阿卡数据</el-button>
-              <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
+              <!-- <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button> -->
             </div>
-            <p class="note">「读取阿卡数据」从阿卡拉取角色装备并加载到当前装备；「保存到阿卡」将当前装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+            <p class="note">「读取阿卡数据」从阿卡拉取角色装备并加载到当前装备</p><!-- ；「保存到阿卡」将当前装备写回阿卡（需先读取角色，目标词条不参与）。 -->
             <p v-if="akaLoadedLabel" class="note" style="color:#1fa2ff; font-weight:bold;">当前读取：{{ akaLoadedLabel }}</p>
           </div>
 
@@ -212,9 +212,9 @@
             <h3 class="panel-title">存档/读取</h3>
             <div class="save-row">
               <el-button color="#1fa2ff" @click="openAkaDialog">读取阿卡数据</el-button>
-              <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button>
+              <!-- <el-button plain :disabled="!akaSaveEnabled" :loading="akaSaving" @click="confirmSaveToAka">保存到阿卡</el-button> -->
             </div>
-            <p class="note">「读取阿卡数据」从阿卡拉取角色并直接加载四件装备；「保存到阿卡」将四件装备写回阿卡（需先读取角色，目标词条不参与）。</p>
+            <p class="note">「读取阿卡数据」从阿卡拉取角色并直接加载四件装备</p><!--  ；「保存到阿卡」将四件装备写回阿卡（需先读取角色，目标词条不参与）。-->
             <p v-if="akaLoadedLabel" class="note" style="color:#1fa2ff; font-weight:bold;">当前读取：{{ akaLoadedLabel }}</p>
           </div>
 
