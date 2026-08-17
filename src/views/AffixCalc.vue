@@ -184,7 +184,7 @@
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
               <div class="time-row">
-                <span class="time-server">国服（3.402 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国服（3.3877 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row">
@@ -404,7 +404,7 @@
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
               <div class="time-row">
-                <span class="time-server">国服（3.402 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国服（3.3877 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row">
@@ -1068,7 +1068,7 @@ const costParts = computed(() => {
 
 // 每日资源产出：国服 / 国际服
 const DAILY_RATE = {
-  cn: { stone: 3.402, key: 18 },
+  cn: { stone: 3.3877, key: 18 },
   int: { stone: 4.21, key: 18 },
 }
 
