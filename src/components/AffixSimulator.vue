@@ -160,6 +160,7 @@
         </p>
 
         <div class="compare-actions">
+          <el-button plain size="large" @click="emit('read-aka', mode)">读取阿卡数据</el-button>
           <el-button color="#1fa2ff" size="large" @click="startCustomSimulation">开始模拟</el-button>
         </div>
         <p v-if="customError" class="custom-error">{{ customError }}</p>
@@ -258,6 +259,8 @@
 <script setup>
 import { ref, computed, onUnmounted, watch } from 'vue'
 import { CHAR_TIER_RANGES } from '../affix_tier_ranges.js'
+
+const emit = defineEmits(['read-aka'])
 
 /* ==================== 游戏常量 ==================== */
 
@@ -895,6 +898,27 @@ function exitGame() {
   pendingWash.value = null
   dialogVisible.value = false
 }
+
+// 从阿卡加载：由父组件（计算器页）在读取阿卡数据后调用
+function applyAkaCharacter(gears) {
+  exitGame()
+  mode.value = 'character'
+  customCharGears.value = gears.map(g => ({ slots: g.slots.map(s => ({ ...s })), locks: {} }))
+  customTargets.value = [blankTarget(44)]
+  simMode.value = 'custom'
+  customError.value = ''
+}
+
+function applyAkaGear(gear, slotNo) {
+  exitGame()
+  mode.value = 'single'
+  customSingleGear.value = { slots: gear.slots.map(s => ({ ...s })), locks: {} }
+  customTargets.value = [blankTarget(13)]
+  simMode.value = 'custom'
+  customError.value = ''
+}
+
+defineExpose({ applyAkaCharacter, applyAkaGear })
 
 /* ==================== 展示 ==================== */
 

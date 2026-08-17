@@ -253,6 +253,12 @@
           <div class="panel">
             <h2 class="panel-title">② 角色目标词条（最多 5 个，四件装备合计）</h2>
             <p class="panel-note">同一行下拉可多选词条并合并为同一目标：四件装备上任意词条达到该目标即累计贡献阶数（如 暴击伤害+暴击率 总 22 阶 = bsbj22）。不同行的目标仍需同时满足；所有词条全局不可重复。</p>
+            <div class="preset-row">
+              <span class="preset-label">一键设置：</span>
+              <el-button size="small" @click="applyCharacterTargetPreset('uy')">优越</el-button>
+              <el-button size="small" @click="applyCharacterTargetPreset('uygj')">优攻</el-button>
+              <el-button size="small" @click="applyCharacterTargetPreset('uygjdr')">优攻弹</el-button>
+            </div>
             <div class="slot-list">
               <div class="slot-row" v-for="(t, i) in characterTargets" :key="i">
                 <span class="slot-label">目标{{ i + 1 }}</span>
@@ -438,7 +444,7 @@
 
         <!-- ==================== 洗词条模拟器 ==================== -->
         <el-tab-pane label="洗词条模拟器" name="simulator">
-          <AffixSimulator />
+          <AffixSimulator ref="simulatorRef" @read-aka="openAkaForSimulator" />
         </el-tab-pane>
       </el-tabs>
 
@@ -466,7 +472,7 @@
         </div>
 
         <!-- 角色版：一个角色一个按钮，点击直接加载四件装备 -->
-        <div v-else-if="activeTab === 'character'" class="aka-char-grid">
+        <div v-else-if="akaDialogMode === 'character'" class="aka-char-grid">
           <el-button v-for="c in akaCharacters" :key="c.characterName" @click="loadAkaCharacter(c)">{{ c.characterName }}</el-button>
         </div>
 
@@ -691,6 +697,20 @@ function removeTarget(targets, index) {
   targets.splice(index, 1)
 }
 
+// 角色目标一键设置预设
+const CHARACTER_TARGET_PRESETS = {
+  uy: [[['uy'], 44]],
+  uygj: [[['uy'], 44], [['gj'], 44]],
+  uygjdr: [[['uy'], 44], [['gj'], 44], [['dr'], 22]],
+}
+
+function applyCharacterTargetPreset(key) {
+  const preset = CHARACTER_TARGET_PRESETS[key]
+  if (!preset) return
+  characterTargets.value = preset.map(([effects, tier]) => ({ effects: [...effects], tier }))
+  result.value = null
+}
+
 function lockedCount(gear) {
   return gear.slots.filter(s => s.locked).length
 }
@@ -763,6 +783,11 @@ const akaError = ref('')
 const akaKeyLoaded = ref(false)     // 是否已从存储加载过 Key
 const loadedAkaSingle = ref(null)   // { characterName, slotNo }
 const loadedAkaChar = ref(null)     // { characterName }
+
+// 阿卡对话框的目标：calc = 计算器面板；simulator = 洗词条模拟器
+const simulatorRef = ref(null)
+const akaTarget = ref('calc')
+const akaDialogMode = ref('single') // 对话框内列表流程：single / character
 
 const akaSaveEnabled = computed(() =>
   activeTab.value === 'single' ? !!loadedAkaSingle.value : !!loadedAkaChar.value
@@ -842,7 +867,9 @@ function loadAkaCharsCache() {
   } catch (e) { /* 缓存损坏忽略 */ }
 }
 
-async function openAkaDialog() {
+async function showAkaDialog(target, dialogMode) {
+  akaTarget.value = target
+  akaDialogMode.value = dialogMode
   akaError.value = ''
   akaSelectedChar.value = null
   if (!akaKeyLoaded.value) {
@@ -851,6 +878,14 @@ async function openAkaDialog() {
   }
   loadAkaCharsCache()
   akaDialogVisible.value = true
+}
+
+async function openAkaDialog() {
+  await showAkaDialog('calc', activeTab.value === 'single' ? 'single' : 'character')
+}
+
+function openAkaForSimulator(simMode) {
+  showAkaDialog('simulator', simMode === 'character' ? 'character' : 'single')
 }
 
 async function fetchAkaCharacters() {
@@ -886,9 +921,13 @@ async function fetchAkaCharacters() {
 
 // 角色版：直接加载四件装备
 function loadAkaCharacter(c) {
-  characterGears.value = characterInfoToGears(c.equipmentInfos)
-  loadedAkaChar.value = { characterName: c.characterName }
-  result.value = null
+  if (akaTarget.value === 'simulator') {
+    simulatorRef.value && simulatorRef.value.applyAkaCharacter(characterInfoToGears(c.equipmentInfos), c.characterName)
+  } else {
+    characterGears.value = characterInfoToGears(c.equipmentInfos)
+    loadedAkaChar.value = { characterName: c.characterName }
+    result.value = null
+  }
   akaDialogVisible.value = false
   akaSelectedChar.value = null
   ElMessage.success('已加载角色「' + c.characterName + '」')
@@ -897,9 +936,14 @@ function loadAkaCharacter(c) {
 // 单装备版：加载选中的那件装备
 function loadAkaGear(c, slotNo) {
   const info = (c.equipmentInfos || []).find(x => Number(x.slotNo) === slotNo) || { slotNo, statInfos: [] }
-  singleGear.value = { slots: statInfosToSlots(info.statInfos) }
-  loadedAkaSingle.value = { characterName: c.characterName, slotNo }
-  result.value = null
+  const gear = { slots: statInfosToSlots(info.statInfos) }
+  if (akaTarget.value === 'simulator') {
+    simulatorRef.value && simulatorRef.value.applyAkaGear(gear, slotNo, c.characterName)
+  } else {
+    singleGear.value = gear
+    loadedAkaSingle.value = { characterName: c.characterName, slotNo }
+    result.value = null
+  }
   akaDialogVisible.value = false
   akaSelectedChar.value = null
   ElMessage.success('已加载「' + c.characterName + '」装备' + gearNames[slotNo])
@@ -1548,6 +1592,20 @@ h1 {
 
 .add-row {
   margin-top: 12px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.preset-label {
+  color: #666;
+  font-size: 13px;
+  font-weight: bold;
 }
 
 .gear-grid {
