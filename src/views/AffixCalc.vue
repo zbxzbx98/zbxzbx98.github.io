@@ -807,7 +807,7 @@ function gearToStatInfos(slots) {
   const statInfos = []
   slots.forEach((slot, i) => {
     if (slot.effect && slot.effect !== 'wd') {
-      statInfos.push({ index: i + 1, statNo: CODE_TO_STAT_NO[slot.effect], statValueLevel: slot.tier })
+      statInfos.push({ index: i, statNo: CODE_TO_STAT_NO[slot.effect], statValueLevel: slot.tier })
     }
   })
   return statInfos
