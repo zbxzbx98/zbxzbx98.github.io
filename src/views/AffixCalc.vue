@@ -458,35 +458,47 @@
             clearable
             placeholder="请输入阿卡 API Key"
             style="flex: 1;"
-            @keyup.enter="fetchAkaCharacters"
+            @keyup.enter="fetchAkaCharacters(0)"
           />
           <el-button plain @click="saveAkaApiKey()">保存 Key</el-button>
-          <el-button color="#1fa2ff" :loading="akaLoading" :disabled="!akaApiKey.trim()" @click="fetchAkaCharacters">获取角色数据</el-button>
+          <el-button color="#1fa2ff" :loading="akaLoadingCN" :disabled="!akaApiKey.trim()" @click="fetchAkaCharacters(0)">获取国服角色数据</el-button>
+          <el-button color="#1fa2ff" :loading="akaLoadingInt" :disabled="!akaApiKey.trim()" @click="fetchAkaCharacters(1)">获取外服角色数据</el-button>
         </div>
-        <p class="note">输入 API Key 后才能获取数据；Key 会保存在浏览器本地缓存。</p>
+        <p class="note">输入 API Key 后才能获取数据；Key 会保存在浏览器本地缓存。国服/外服数据分别独立保存。</p>
 
         <div v-if="akaError" class="aka-error">{{ akaError }}</div>
 
-        <div v-if="akaCharacters.length === 0" class="save-empty">
-          {{ akaApiKey.trim() ? '暂无角色数据，请点击「获取角色数据」' : '请先输入 API Key' }}
+        <div v-if="!akaCharactersCN.length && !akaCharactersInt.length" class="save-empty">
+          {{ akaApiKey.trim() ? '暂无角色数据，请点击上方「获取国服/外服角色数据」' : '请先输入 API Key' }}
         </div>
 
-        <!-- 角色版：一个角色一个按钮，点击直接加载四件装备 -->
-        <div v-else-if="akaDialogMode === 'character'" class="aka-char-grid">
-          <el-button v-for="c in akaCharacters" :key="c.characterName" @click="loadAkaCharacter(c)">{{ c.characterName }}</el-button>
-        </div>
-
-        <!-- 单装备版：先选角色，再从 4 件装备中选一件加载 -->
         <template v-else>
-          <div class="aka-char-grid">
-            <el-button
-              v-for="c in akaCharacters"
-              :key="c.characterName"
-              :type="akaSelectedChar === c ? 'primary' : ''"
-              @click="akaSelectedChar = c"
-            >{{ c.characterName }}</el-button>
+          <!-- 国服 -->
+          <div class="aka-server-section">
+            <div class="aka-server-title">国服</div>
+            <div v-if="akaCharactersCN.length === 0" class="aka-server-empty">暂无国服数据，请点击上方「获取国服角色数据」</div>
+            <div v-else-if="akaDialogMode === 'character'" class="aka-char-grid">
+              <el-button v-for="c in akaCharactersCN" :key="'cn-' + c.characterName" @click="loadAkaCharacter(c)">{{ c.characterName }}</el-button>
+            </div>
+            <div v-else class="aka-char-grid">
+              <el-button v-for="c in akaCharactersCN" :key="'cn-' + c.characterName" :type="akaSelectedChar === c ? 'primary' : ''" @click="akaSelectedChar = c">{{ c.characterName }}</el-button>
+            </div>
           </div>
-          <div v-if="akaSelectedChar" class="aka-gear-grid">
+
+          <!-- 外服 -->
+          <div class="aka-server-section">
+            <div class="aka-server-title">外服</div>
+            <div v-if="akaCharactersInt.length === 0" class="aka-server-empty">暂无外服数据，请点击上方「获取外服角色数据」</div>
+            <div v-else-if="akaDialogMode === 'character'" class="aka-char-grid">
+              <el-button v-for="c in akaCharactersInt" :key="'int-' + c.characterName" @click="loadAkaCharacter(c)">{{ c.characterName }}</el-button>
+            </div>
+            <div v-else class="aka-char-grid">
+              <el-button v-for="c in akaCharactersInt" :key="'int-' + c.characterName" :type="akaSelectedChar === c ? 'primary' : ''" @click="akaSelectedChar = c">{{ c.characterName }}</el-button>
+            </div>
+          </div>
+
+          <!-- 单装备版：选中角色后显示装备选择 -->
+          <div v-if="akaDialogMode !== 'character' && akaSelectedChar" class="aka-gear-grid">
             <div class="aka-gear-title">选择「{{ akaSelectedChar.characterName }}」的装备：</div>
             <el-button v-for="i in 4" :key="i" @click="loadAkaGear(akaSelectedChar, i - 1)">
               装备{{ gearNames[i - 1] }}（{{ AKA_SLOT_NAMES[i - 1] }}）
@@ -771,13 +783,16 @@ const AKA_SLOT_NAMES = ['头', '衣', '手', '鞋']
 
 const AKA_API_BASE = 'https://pinkuro.top:9984/third/bot/nikke/v1'
 const AKA_KEY_STORAGE_KEY = 'affix_aka_apikey'
-const AKA_CHARS_STORAGE_KEY = 'affix_aka_chars'
+const AKA_CHARS_CN_KEY = 'affix_aka_chars_cn'
+const AKA_CHARS_INT_KEY = 'affix_aka_chars_int'
 
 const akaDialogVisible = ref(false)
 const akaApiKey = ref('')
-const akaCharacters = ref([])
+const akaCharactersCN = ref([])
+const akaCharactersInt = ref([])
 const akaSelectedChar = ref(null)   // 单装备流程：先选角色
-const akaLoading = ref(false)
+const akaLoadingCN = ref(false)
+const akaLoadingInt = ref(false)
 const akaSaving = ref(false)
 const akaError = ref('')
 const akaKeyLoaded = ref(false)     // 是否已从存储加载过 Key
@@ -859,10 +874,17 @@ async function saveAkaApiKey(silent = false) {
 
 function loadAkaCharsCache() {
   try {
-    const raw = localStorage.getItem(AKA_CHARS_STORAGE_KEY)
+    const raw = localStorage.getItem(AKA_CHARS_CN_KEY)
     if (raw) {
       const list = JSON.parse(raw)
-      if (Array.isArray(list)) akaCharacters.value = list
+      if (Array.isArray(list)) akaCharactersCN.value = list
+    }
+  } catch (e) { /* 缓存损坏忽略 */ }
+  try {
+    const raw = localStorage.getItem(AKA_CHARS_INT_KEY)
+    if (raw) {
+      const list = JSON.parse(raw)
+      if (Array.isArray(list)) akaCharactersInt.value = list
     }
   } catch (e) { /* 缓存损坏忽略 */ }
 }
@@ -888,17 +910,21 @@ function openAkaForSimulator(simMode) {
   showAkaDialog('simulator', simMode === 'character' ? 'character' : 'single')
 }
 
-async function fetchAkaCharacters() {
+async function fetchAkaCharacters(serverType = 0) {
   const key = akaApiKey.value.trim()
   if (!key) {
     ElMessage.warning('请先输入 API Key')
     return
   }
   await saveAkaApiKey(true)
-  akaLoading.value = true
+  const isInt = serverType === 1
+  if (isInt) akaLoadingInt.value = true
+  else akaLoadingCN.value = true
   akaError.value = ''
   try {
-    const resp = await fetch(AKA_API_BASE + '/getUserStatInfo', {
+    // serverType 默认 0（国服）；传 1 查外服
+    const query = isInt ? '?serverType=1' : ''
+    const resp = await fetch(AKA_API_BASE + '/getUserStatInfo' + query, {
       method: 'GET',
       headers: { 'X-API-KEY': key },
     })
@@ -908,14 +934,17 @@ async function fetchAkaCharacters() {
     if (!data || data.success !== true || !Array.isArray(data.data)) {
       throw new Error((data && data.message) || '返回数据格式异常')
     }
-    akaCharacters.value = data.data
-    try { localStorage.setItem(AKA_CHARS_STORAGE_KEY, JSON.stringify(data.data)) } catch (e) { /* 忽略 */ }
-    ElMessage.success('已获取 ' + data.data.length + ' 个角色')
+    if (isInt) akaCharactersInt.value = data.data
+    else akaCharactersCN.value = data.data
+    const cacheKey = isInt ? AKA_CHARS_INT_KEY : AKA_CHARS_CN_KEY
+    try { localStorage.setItem(cacheKey, JSON.stringify(data.data)) } catch (e) { /* 忽略 */ }
+    ElMessage.success('已获取' + (isInt ? '外服' : '国服') + ' ' + data.data.length + ' 个角色')
   } catch (e) {
     akaError.value = e.message || '请求失败'
     ElMessage.error(akaError.value)
   } finally {
-    akaLoading.value = false
+    if (isInt) akaLoadingInt.value = false
+    else akaLoadingCN.value = false
   }
 }
 
@@ -1958,6 +1987,25 @@ code {
   font-weight: bold;
   color: #333;
   margin-bottom: 2px;
+}
+
+.aka-server-section {
+  margin-bottom: 6px;
+}
+
+.aka-server-title {
+  font-weight: bold;
+  color: #3553ff;
+  font-size: 15px;
+  margin: 14px 0 8px;
+  border-left: 4px solid #1fa2ff;
+  padding-left: 8px;
+}
+
+.aka-server-empty {
+  color: #909399;
+  font-size: 13px;
+  padding: 4px 0 8px;
 }
 
 .meta-line {
