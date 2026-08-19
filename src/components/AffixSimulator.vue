@@ -13,6 +13,7 @@
       <el-button plain @click="restartGame" :disabled="!started">重新开始</el-button>
       <el-button plain type="danger" @click="exitGame" :disabled="!started">退出关卡</el-button>
       <el-button plain :disabled="!started" @click="showExpectation = true">查看期望</el-button>
+      <el-checkbox v-model="soundEnabled">启用音效</el-checkbox>
     </div>
 
     <template v-if="started">
@@ -339,6 +340,7 @@ const targetEffectOptionsList = EFFECT_WEIGHTS.map(e => ({ code: e.code, name: E
 
 const mode = ref('single')
 const simMode = ref('random')
+const soundEnabled = ref(true)
 const started = ref(false)
 const gears = ref([])
 const targets = ref([])
@@ -663,6 +665,7 @@ function unlockSlot(gi, si) {
 let washAudio = null
 
 function playWashSound() {
+  if (!soundEnabled.value) return
   try {
     if (!washAudio) {
       washAudio = new Audio('./effect.mp3')
