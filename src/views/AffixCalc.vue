@@ -157,21 +157,6 @@
             <h2 class="panel-title">计算结果</h2>
             <div v-if="isDone" class="done-banner">当前装备已满足目标词条，无需操作（d0）。</div>
             <template v-else>
-              <div class="cost-grid">
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.allStone }}</div>
-                  <div class="cost-label">全石头期望（石头）</div>
-                </div>
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.keyStone }}</div>
-                  <div class="cost-label">秘钥策略石头期望</div>
-                </div>
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.keys }}</div>
-                  <div class="cost-label">秘钥期望</div>
-                </div>
-              </div>
-
               <div class="action-section">
                 <h4>允许秘钥时的下一步操作</h4>
                 <ol class="action-list">
@@ -186,6 +171,21 @@
                   <li v-for="(tok, idx) in singleStoneTokens" :key="idx">{{ translateToken(tok, 'single', true) }}</li>
                 </ol>
                 <p class="note">注：石头锁为永久锁定，可在后续洗练前免费解除；解锁免费。</p>
+              </div>
+
+              <div class="cost-grid">
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.allStone }}</div>
+                  <div class="cost-label">全石头期望（石头）</div>
+                </div>
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.keyStone }}</div>
+                  <div class="cost-label">秘钥策略石头期望</div>
+                </div>
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.keys }}</div>
+                  <div class="cost-label">秘钥期望</div>
+                </div>
               </div>
             </template>
 
@@ -382,21 +382,6 @@
             <h2 class="panel-title">计算结果</h2>
             <div v-if="isDone" class="done-banner">当前角色已满足目标词条，无需操作（d0）。</div>
             <template v-else>
-              <div class="cost-grid">
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.allStone }}</div>
-                  <div class="cost-label">全石头期望（石头）</div>
-                </div>
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.keyStone }}</div>
-                  <div class="cost-label">秘钥策略石头期望</div>
-                </div>
-                <div class="cost-item">
-                  <div class="cost-num">{{ costParts.keys }}</div>
-                  <div class="cost-label">秘钥期望</div>
-                </div>
-              </div>
-
               <div class="action-section">
                 <h4>允许秘钥时的下一步操作</h4>
                 <ol class="action-list">
@@ -411,6 +396,21 @@
                   <li v-for="(tok, idx) in actionTokens(result.stoneOnlyAction)" :key="idx">{{ translateToken(tok, 'character', true) }}</li>
                 </ol>
                 <p class="note">注：石头锁为永久锁定，可在后续洗练前免费解除；解锁免费。</p>
+              </div>
+
+              <div class="cost-grid">
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.allStone }}</div>
+                  <div class="cost-label">全石头期望（石头）</div>
+                </div>
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.keyStone }}</div>
+                  <div class="cost-label">秘钥策略石头期望</div>
+                </div>
+                <div class="cost-item">
+                  <div class="cost-num">{{ costParts.keys }}</div>
+                  <div class="cost-label">秘钥期望</div>
+                </div>
               </div>
             </template>
 
