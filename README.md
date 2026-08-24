@@ -103,4 +103,8 @@ The calculators are for estimation only and may not be perfectly optimal; any st
 
 ---
 
-制作：zbxzbx98 ｜ Made by zbxzbx98
+制作：zbxzbx98 ｜ Made by zbxzbx98  
+开源许可证/License：MIT  
+虽然本项目使用MIT协议开源，不过如果您在使用本项目中的内容或相关产品时，能顺带提及一下本项目地址/部署页面链接/制作者名称等相关内容的话，本人不胜感激！  
+Although this project is open-sourced under the MIT license, I would greatly appreciate it if you could mention the project's address/deployment page link/creator's name and other relevant information when using the content or related products of this project.
+
