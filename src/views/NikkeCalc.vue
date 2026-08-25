@@ -87,7 +87,10 @@
           <div class="pressure-panel">
             <div class="pressure-panel-head">
               <span class="pressure-panel-title">下一关战压</span>
-              <el-button size="small" color="#1fa2ff" plain @click="openPressureDialog">战压计算</el-button>
+              <div class="pressure-head-buttons">
+                <el-button size="small" color="#1fa2ff" plain @click="openStageListDialog">关卡列表</el-button>
+                <el-button size="small" color="#1fa2ff" plain @click="openPressureDialog">战压计算</el-button>
+              </div>
             </div>
             <div class="pressure-panel-body">
               <div class="pressure-panel-field">
@@ -221,7 +224,7 @@
               <div class="instruction-grid">
                 <div class="instruction-item">
                   <div class="instruction-text" data-i18n="instruction1">
-                    选择战役关卡代表已通关该关卡，数值可能有 ±0.01 显示误差，且国服个人关卡进度可能有1-2关的误差，请使用国服等级修正功能进行同步
+                    选择战役关卡代表已通关该关卡，数值可能有 ±0.01 显示误差，且国服个人关卡进度可能有1-2关的误差，请使用国服等级修正功能进行同步。困难关卡战力数据来源：NKAS
                   </div>
                 </div>
                 
@@ -288,6 +291,36 @@
           <el-button @click="pressureDialogVisible = false">关闭</el-button>
         </template>
       </el-dialog>
+
+      <!-- ==================== 关卡列表弹窗 ==================== -->
+      <el-dialog v-model="stageListDialogVisible" title="关卡列表" width="min(760px, 94vw)">
+        <div v-if="stageListData.length === 0" class="stage-list-empty">
+          暂无未通关的困难关卡
+        </div>
+        <div v-else class="stage-list-wrap">
+          <table class="data-table stage-list-table">
+            <thead>
+              <tr>
+                <th>困难章节</th>
+                <th>关卡类型</th>
+                <th>基准战力</th>
+                <th>战压 (%)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, i) in stageListData" :key="i">
+                <td>{{ row.name }}</td>
+                <td>{{ row.typeLabel }}</td>
+                <td>{{ fmtPower(row.power) }}</td>
+                <td>{{ fmtPercent(row.pressurePct / 100) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <template #footer>
+          <el-button @click="stageListDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
   </div>
 </template>
 
@@ -328,6 +361,14 @@ const currentPower = ref(0)
 const targetPower = ref(0)
 const selectedHardStageCascader = ref([])  // 弹窗中选择困难关卡（章节 -> 关卡）
 const stagesPower = ref([])            // stages-power.json 原始数据
+const stageListDialogVisible = ref(false)  // 关卡列表弹窗
+
+// 关卡类型 -> 中文
+const STAGE_TYPE_LABELS = {
+  Campaign: '歼灭战',
+  Defense: '防御战',
+  BaseDefense: '据点防御战',
+}
 
 /**
  * 战力压制D类型：战力压比 -> 属性保留倍率
@@ -361,6 +402,7 @@ const stagesPowerFlat = computed(() => {
         key: normalizeStageKey(stage.name),
         name: stage.name,
         power: stage.power,
+        type: stage.type,
         chapter: ci,
       })
     })
@@ -396,6 +438,15 @@ function normalizeStageKey(section) {
 // 当前选择的困难关卡 Section（兼容数组/字符串两种形式）
 function getSelectedHardSection() {
   let v = selectedHardMode.value
+  if (Array.isArray(v)) v = v[v.length - 1] || ''
+  const id = String(v)
+  const ch = chaptersData.value.find(c => String(c.id) === id)
+  return ch ? ch.section : ''
+}
+
+// 当前选择的普通（简单）关卡 Section（兼容数组/字符串两种形式）
+function getSelectedEasySection() {
+  let v = selectedEasyMode.value
   if (Array.isArray(v)) v = v[v.length - 1] || ''
   const id = String(v)
   const ch = chaptersData.value.find(c => String(c.id) === id)
@@ -450,6 +501,40 @@ function fmtPower(v) {
 function fmtPercent(v) {
   const s = (v * 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
   return s + '%'
+}
+
+// 关卡列表：当前困难关卡之后、普通关卡之前的困难关卡（未通关部分）
+const stageListData = computed(() => {
+  const flat = stagesPowerFlat.value
+  if (!flat.length) return []
+  const hardKey = normalizeStageKey(getSelectedHardSection())
+  const easyKey = normalizeStageKey(getSelectedEasySection())
+  // 同一关卡可能有多个子关卡（如 6-6A-1 / 6-6A-2），取该关最后一段为“已通关”终点
+  let hardLast = -1
+  let easyLast = -1
+  for (let i = 0; i < flat.length; i++) {
+    if (flat[i].key === hardKey) hardLast = i
+    if (flat[i].key === easyKey) easyLast = i
+  }
+  if (hardLast === -1 || easyLast === -1 || hardLast >= easyLast) return []
+  const cur = Number(currentPower.value) || 0
+  const list = []
+  for (let i = hardLast + 1; i <= easyLast; i++) {
+    const s = flat[i]
+    const pressure = s.power > 0 ? ((s.power - cur) / s.power) : 0
+    list.push({
+      name: s.name,
+      type: s.type,
+      typeLabel: STAGE_TYPE_LABELS[s.type] || s.type,
+      power: s.power,
+      pressurePct: pressure * 100,
+    })
+  }
+  return list
+})
+
+function openStageListDialog() {
+  stageListDialogVisible.value = true
 }
 
 // 国服等级修正选项
@@ -1333,6 +1418,28 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 12px;
+}
+
+.pressure-head-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stage-list-empty {
+  text-align: center;
+  color: #909399;
+  padding: 30px 0;
+}
+
+.stage-list-wrap {
+  max-height: 60vh;
+  overflow-y: auto;
+  border-radius: 10px;
+}
+
+.stage-list-table {
+  width: 100%;
 }
 
 .pressure-panel-title {
