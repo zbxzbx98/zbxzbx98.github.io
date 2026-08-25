@@ -213,15 +213,19 @@
         </div>
         <div v-if="pressureCalc" class="pressure-result">
           <div class="pressure-formula">
-            战压 =（{{ fmtPower(pressureCalc.tgt) }} - {{ fmtPower(pressureCalc.cur) }}）/ {{ fmtPower(pressureCalc.tgt) }}
-            = <b>{{ fmtPercent(pressureCalc.ratio) }}</b>
+            <template v-if="pressureCalc.factor === 1">
+              战压：<b>无战压</b>
+            </template>
+            <template v-else>
+              战压 =（{{ fmtPower(pressureCalc.tgt) }} - {{ fmtPower(pressureCalc.cur) }}）/ {{ fmtPower(pressureCalc.tgt) }}
+              = <b>{{ fmtPercent(pressureCalc.ratio) }}</b>
+            </template>
           </div>
           <div class="pressure-factor">
             属性保留倍率（消减后）：<b class="pressure-big">{{ fmtPercent(pressureCalc.factor) }}</b>
           </div>
-          <div class="pressure-note">
-            即属性被压制 {{ fmtPercent(1 - pressureCalc.factor) }}，仅保留 {{ fmtPercent(pressureCalc.factor) }}
-          </div>
+          <div v-if="pressureCalc.factor === 1" class="pressure-note">当前战力不低于目标战力，无属性压制。</div>
+          <div v-else class="pressure-note">即属性被压制 {{ fmtPercent(1 - pressureCalc.factor) }}，仅保留 {{ fmtPercent(pressureCalc.factor) }}</div>
         </div>
         <div v-else class="pressure-hint">请输入目标战力（需大于 0），结果将自动计算并显示。</div>
         <template #footer>
@@ -294,7 +298,7 @@ const pressureCalc = computed(() => {
   const tgt = Number(targetPower.value) || 0
   if (tgt <= 0) return null
   const ratio = (tgt - cur) / tgt
-  const factor = pressureFactorD(ratio)
+  const factor = pressureFactorD(-ratio)
   return { cur, tgt, ratio, factor }
 })
 
