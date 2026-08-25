@@ -7,7 +7,6 @@
         <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
         <a href="https://www.bilibili.com/toy/NikkeCalc/index.html" style="margin-left: 10px; margin-right: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
         <el-button color="#1fa2ff" plain @click="$router.push('AffixCalc')">装备洗练计算器</el-button>
-        <el-button color="#1fa2ff" plain @click="openPressureDialog" style="margin-left: 10px;">战压计算</el-button>
       </div>
 
       <div class="container">
@@ -80,6 +79,51 @@
               <div class="progress-bar" id="progressBar">
                 <div v-for="n in 5" :key="n" class="progress-segment" :class="{ active: n <= progressCurrent }">
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 下一关战压 -->
+          <div class="pressure-panel">
+            <div class="pressure-panel-head">
+              <span class="pressure-panel-title">下一关战压</span>
+              <el-button size="small" color="#1fa2ff" plain @click="openPressureDialog">战压计算</el-button>
+            </div>
+            <div class="pressure-panel-body">
+              <div class="pressure-panel-field">
+                <span class="pressure-panel-label">当前战力：</span>
+                <el-input-number v-model="currentPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 180px;" />
+              </div>
+              <template v-if="stagesPowerFlat.length">
+                <template v-if="currentHardStage">
+                  <template v-if="nextStageInfo">
+                    <div class="pressure-panel-field">
+                      <span class="pressure-panel-label">下一关：</span>
+                      <span class="pressure-next-name">{{ nextStageInfo.name }}</span>
+                      <span class="pressure-next-power">{{ fmtPower(nextStageInfo.power) }}</span>
+                    </div>
+                    <div class="pressure-panel-field">
+                      <span class="pressure-panel-label">当前战压：</span>
+                      <span class="pressure-inline">
+                        <template v-if="nextStagePressure && nextStagePressure.factor === 1">无战压</template>
+                        <template v-else-if="nextStagePressure">战压 {{ fmtPercent(nextStagePressure.ratio) }}，属性保留 {{ fmtPercent(nextStagePressure.factor) }}</template>
+                        <template v-else>-</template>
+                      </span>
+                    </div>
+                  </template>
+                  <div v-else class="pressure-panel-field">
+                    <span class="pressure-panel-label">下一关：</span>
+                    <span class="pressure-empty">已是最后一关，无下一关数据</span>
+                  </div>
+                </template>
+                <div v-else class="pressure-panel-field">
+                  <span class="pressure-panel-label">下一关：</span>
+                  <span class="pressure-empty">当前选择的困难关卡未找到战力数据</span>
+                </div>
+              </template>
+              <div v-else class="pressure-panel-field">
+                <span class="pressure-panel-label">下一关：</span>
+                <span class="pressure-empty">战力数据加载中…</span>
               </div>
             </div>
           </div>
@@ -211,6 +255,12 @@
           <span class="pressure-label">目标战力：</span>
           <el-input-number v-model="targetPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 200px;" />
         </div>
+        <div class="pressure-row">
+          <span class="pressure-label">选择关卡：</span>
+          <el-select v-model="selectedHardStageKey" filterable placeholder="选择困难关卡读取目标战力" style="width: 200px;" @change="handleStageSelect">
+            <el-option v-for="opt in hardStageOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
+          </el-select>
+        </div>
         <div v-if="pressureCalc" class="pressure-result">
           <div class="pressure-formula">
             <template v-if="pressureCalc.factor === 1">
@@ -236,7 +286,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { ElCascader, ElSelect, ElOption, ElTooltip, ElIcon, ElNotification } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import * as THREE from "three";
@@ -270,6 +320,8 @@ const QuestionFilledIcon = QuestionFilled
 const pressureDialogVisible = ref(false)
 const currentPower = ref(0)
 const targetPower = ref(0)
+const selectedHardStageKey = ref('')   // 弹窗中选择困难关卡
+const stagesPower = ref([])            // stages-power.json 原始数据
 
 /**
  * 战力压制D类型：战力压比 -> 属性保留倍率
@@ -277,30 +329,99 @@ const targetPower = ref(0)
  * @returns {number} 属性保留倍率（小数），如 0.51 表示属性变为 51%（即 -49%）
  */
 function pressureFactorD(x) {
-  if (x >= 0)      return 1;                  // 无压制
-  if (x >= -0.005) return 5.00 * x + 0.9500;  // [-0.5%, 0)
-  if (x >= -0.01)  return 4.80 * x + 0.9490;  // [-1%, -0.5%)
-  if (x >= -0.037) return 4.00 * x + 0.9410;  // [-3.7%, -1%)
-  if (x >= -0.059) return 3.10 * x + 0.9080;  // [-5.9%, -3.7%)
-  if (x >= -0.091) return 2.03 * x + 0.8445;  // [-9.1%, -5.9%)
-  if (x >= -0.158) return 1.35 * x + 0.7830;  // [-15.8%, -9.1%)
-  if (x >= -0.499) return 1.00 * x + 0.7280;  // [-49.9%, -15.8%)
-  return 0.10;                                // < -49.9% 跳至 -90%
-}
-
-function openPressureDialog() {
-  pressureDialogVisible.value = true
+  if (x >= 0)      return 1;                              // 无压制
+  if (x >= -0.0991) return 21 * x * x + 5.11 * x + 0.9505; // 二次段
+  if (x >= -0.1571) return 1.379 * x + 0.7866;             // 斜率1.38
+  if (x >= -0.4981) return x + 0.7271;                     // 斜率1
+  return 0.1;                                              // 跳至 -90%
 }
 
 // 战压 =（目标战力 - 当前战力）/ 目标战力，再换算为属性保留倍率
-const pressureCalc = computed(() => {
-  const cur = Number(currentPower.value) || 0
-  const tgt = Number(targetPower.value) || 0
-  if (tgt <= 0) return null
+function calcPressure(cur, tgt) {
+  if (!tgt || tgt <= 0) return null
   const ratio = (tgt - cur) / tgt
   const factor = pressureFactorD(-ratio)
   return { cur, tgt, ratio, factor }
+}
+
+const pressureCalc = computed(() => calcPressure(Number(currentPower.value) || 0, Number(targetPower.value) || 0))
+
+// stages-power 扁平化：按章节顺序排列的困难关卡列表
+const stagesPowerFlat = computed(() => {
+  const flat = []
+  stagesPower.value.forEach(chapter => {
+    chapter.forEach(stage => {
+      flat.push({
+        key: normalizeStageKey(stage.name),
+        name: stage.name,
+        power: stage.power,
+      })
+    })
+  })
+  return flat
 })
+
+// 困难关卡下拉选项（用于弹窗中选择目标战力）
+const hardStageOptions = computed(() =>
+  stagesPowerFlat.value.map(s => ({
+    value: s.key,
+    label: `${s.name}（${fmtPower(s.power)}）`,
+    power: s.power,
+  }))
+)
+
+// "0-3 HARD BOSS" / "0-3 BOSS" -> "0-3"
+function normalizeStageKey(section) {
+  const m = String(section || '').match(/^(\d+)-(\d+)/)
+  return m ? `${m[1]}-${m[2]}` : String(section || '').trim()
+}
+
+// 当前选择的困难关卡 Section（兼容数组/字符串两种形式）
+function getSelectedHardSection() {
+  let v = selectedHardMode.value
+  if (Array.isArray(v)) v = v[v.length - 1] || ''
+  const id = String(v)
+  const ch = chaptersData.value.find(c => String(c.id) === id)
+  return ch ? ch.section : ''
+}
+
+// 当前选择的困难关卡（在 stages-power 中的位置）
+const currentHardStage = computed(() => {
+  const flat = stagesPowerFlat.value
+  if (!flat.length) return null
+  const curKey = normalizeStageKey(getSelectedHardSection())
+  const idx = flat.findIndex(s => s.key === curKey)
+  return idx === -1 ? null : { ...flat[idx], idx }
+})
+
+// 下一关（当前困难关卡的下一关）
+const nextStageInfo = computed(() => {
+  const cur = currentHardStage.value
+  if (!cur) return null
+  const next = stagesPowerFlat.value[cur.idx + 1]
+  return next ? { ...next, currentKey: cur.key } : null
+})
+
+// 当前战力 vs 下一关战力的战压结果
+const nextStagePressure = computed(() => {
+  const next = nextStageInfo.value
+  if (!next) return null
+  return calcPressure(Number(currentPower.value) || 0, next.power)
+})
+
+function openPressureDialog() {
+  // 自动填入下一关战力为目标战力
+  const next = nextStageInfo.value
+  targetPower.value = next ? next.power : 0
+  selectedHardStageKey.value = next ? next.key : ''
+  pressureDialogVisible.value = true
+}
+
+// 下拉选择困难关卡 -> 读取其战力为目标战力
+function handleStageSelect(val) {
+  const opt = hardStageOptions.value.find(o => o.value === val)
+  if (opt) targetPower.value = opt.power
+}
 
 function fmtPower(v) {
   return Number(v).toLocaleString('zh-CN')
@@ -371,12 +492,80 @@ function generateCascaderOptions(mode) {
   return options
 }
 
+/* ==================== 关卡选择与当前战力存储（B站云存储 > 本地浏览器存储 > 默认值） ==================== */
+
+const savedEasy = ref({ bn: '', id: '' })
+const savedHard = ref({ bn: '', id: '' })
+
+const LOCAL_KEYS = {
+  ebn: 'nikke_ebn',
+  ebid: 'nikke_ebid',
+  hbn: 'nikke_hbn',
+  hbid: 'nikke_hbid',
+  cnlv: 'nikke_cnlv',
+  pw: 'nikke_pw',
+}
+
+// 读取存储：优先 B站云存储，其次本地浏览器存储
+async function readSavedState() {
+  const out = {}
+  if (typeof window !== 'undefined' && window.toy) {
+    try {
+      const ok = await window.toy.isSupport('getCloudStorage')
+      if (ok) {
+        const all = await window.toy.getCloudStorage()
+        for (const k of Object.keys(LOCAL_KEYS)) {
+          if (all[k] != null) out[k] = all[k]
+        }
+      }
+    } catch (e) { /* 忽略 */ }
+  }
+  try {
+    for (const [k, lk] of Object.entries(LOCAL_KEYS)) {
+      if (out[k] == null) {
+        const v = localStorage.getItem(lk)
+        if (v != null) out[k] = v
+      }
+    }
+  } catch (e) { /* 忽略 */ }
+  return out
+}
+
+// 写入存储：同时写 B站云存储（如可用）与本地浏览器存储
+async function writeSavedState() {
+  const state = {}
+  if (savedEasy.value.id) { state.ebn = savedEasy.value.bn; state.ebid = savedEasy.value.id }
+  if (savedHard.value.id) { state.hbn = savedHard.value.bn; state.hbid = savedHard.value.id }
+  state.cnlv = String(selectedCnLevelCorrection.value)
+  state.pw = String(currentPower.value || '')
+  if (typeof window !== 'undefined' && window.toy) {
+    try {
+      const ok = await window.toy.isSupport('setCloudStorage')
+      if (ok) await window.toy.setCloudStorage(state)
+    } catch (e) { /* 忽略 */ }
+  }
+  try {
+    for (const [k, lk] of Object.entries(LOCAL_KEYS)) {
+      if (state[k] != null) localStorage.setItem(lk, String(state[k]))
+    }
+  } catch (e) { /* 忽略 */ }
+}
+
+// 当前战力变化时（防抖）保存
+let powerSaveTimer = null
+watch(currentPower, () => {
+  clearTimeout(powerSaveTimer)
+  powerSaveTimer = setTimeout(() => writeSavedState(), 500)
+})
+
 // 处理普通模式变更
 function handleEasyModeChange(value) {
   if (value && value.length === 2) {
     // 级联选择器返回数组 [groupId, itemId]
     selectedEasyMode.value = value[1] // 我们只需要关卡ID
+    savedEasy.value = { bn: value[0], id: value[1] }
     calculateBaseDefenseLevel()
+    writeSavedState()
   } else {
     selectedEasyMode.value = []
   }
@@ -387,7 +576,9 @@ function handleHardModeChange(value) {
   if (value && value.length === 2) {
     // 级联选择器返回数组 [groupId, itemId]
     selectedHardMode.value = value[1] // 我们只需要关卡ID
+    savedHard.value = { bn: value[0], id: value[1] }
     calculateBaseDefenseLevel()
+    writeSavedState()
   } else {
     selectedHardMode.value = []
   }
@@ -398,7 +589,9 @@ function handleEasyModeTableChange(value) {
   if (value && value.length === 2) {
     // 级联选择器返回数组 [groupId, itemId]
     selectedEasyModeTable.value = value[1] // 我们只需要关卡ID
+    savedEasy.value = { bn: value[0], id: value[1] }
     updateTableData()
+    writeSavedState()
   } else {
     selectedEasyModeTable.value = []
   }
@@ -408,6 +601,7 @@ function handleEasyModeTableChange(value) {
 function handleCnLevelCorrectionChange() {
   calculateBaseDefenseLevel()
   updateTableData()
+  writeSavedState()
 }
 
 // 分组章节数据
@@ -640,6 +834,11 @@ async function loadData() {
       })
     }
 
+    // 加载困难关卡战力数据
+    const stagesResponse = await fetch('/json/stages-power.json')
+    const stagesJson = await stagesResponse.json()
+    if (Array.isArray(stagesJson)) stagesPower.value = stagesJson
+
     // 设置默认值
     const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('38-37'))
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
@@ -658,6 +857,36 @@ async function loadData() {
 
     calculateBaseDefenseLevel()
     updateTableData()
+
+    // 读取存储（B站云存储 > 本地浏览器存储），覆盖默认值
+    const saved = await readSavedState()
+    let changed = false
+    if (saved.ebn && saved.ebid) {
+      savedEasy.value = { bn: saved.ebn, id: saved.ebid }
+      selectedEasyMode.value = [saved.ebn, saved.ebid]
+      selectedEasyModeTable.value = [saved.ebn, saved.ebid]
+      changed = true
+    }
+    if (saved.hbn && saved.hbid) {
+      savedHard.value = { bn: saved.hbn, id: saved.hbid }
+      selectedHardMode.value = [saved.hbn, saved.hbid]
+      changed = true
+    }
+    if (saved.cnlv != null) {
+      const v = parseInt(saved.cnlv, 10)
+      if (Number.isFinite(v)) {
+        selectedCnLevelCorrection.value = v
+        changed = true
+      }
+    }
+    if (saved.pw != null && saved.pw !== '') {
+      const v = Number(saved.pw)
+      if (Number.isFinite(v) && v >= 0) currentPower.value = v
+    }
+    if (changed) {
+      calculateBaseDefenseLevel()
+      updateTableData()
+    }
   } catch (error) {
     console.error('数据加载失败:', error)
   }
@@ -1010,6 +1239,69 @@ onUnmounted(() => {
   font-weight: bold;
   color: #333;
   min-width: 72px;
+}
+
+/* 下一关战压面板 */
+.pressure-panel {
+  margin-top: 16px;
+  padding: 16px 18px;
+  background: #fbfdff;
+  border: 1px solid #e3ecf7;
+  border-radius: 10px;
+}
+
+.pressure-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.pressure-panel-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #3553ff;
+  border-left: 4px solid #1fa2ff;
+  padding-left: 8px;
+}
+
+.pressure-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.pressure-panel-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pressure-panel-label {
+  font-weight: bold;
+  color: #444;
+  min-width: 72px;
+}
+
+.pressure-next-name {
+  color: #333;
+  font-weight: 600;
+}
+
+.pressure-next-power {
+  color: #1fa2ff;
+  font-weight: bold;
+}
+
+.pressure-inline {
+  color: #333;
+  font-weight: 600;
+}
+
+.pressure-empty {
+  color: #909399;
+  font-size: 13px;
 }
 
 .pressure-result {
