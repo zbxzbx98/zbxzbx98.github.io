@@ -257,9 +257,15 @@
         </div>
         <div class="pressure-row">
           <span class="pressure-label">选择关卡：</span>
-          <el-select v-model="selectedHardStageKey" filterable placeholder="选择困难关卡读取目标战力" style="width: 200px;" @change="handleStageSelect">
-            <el-option v-for="opt in hardStageOptions" :key="opt.value" :label="opt.label" :value="opt.value" />
-          </el-select>
+          <el-cascader
+            v-model="selectedHardStageCascader"
+            :options="hardStageCascaderOptions"
+            :props="cascaderProps"
+            placeholder="先选章节，再选关卡"
+            style="width: 200px;"
+            @change="handleStageCascaderChange"
+            clearable
+          />
         </div>
         <div v-if="pressureCalc" class="pressure-result">
           <div class="pressure-formula">
@@ -320,7 +326,7 @@ const QuestionFilledIcon = QuestionFilled
 const pressureDialogVisible = ref(false)
 const currentPower = ref(0)
 const targetPower = ref(0)
-const selectedHardStageKey = ref('')   // 弹窗中选择困难关卡
+const selectedHardStageCascader = ref([])  // 弹窗中选择困难关卡（章节 -> 关卡）
 const stagesPower = ref([])            // stages-power.json 原始数据
 
 /**
@@ -349,26 +355,37 @@ const pressureCalc = computed(() => calcPressure(Number(currentPower.value) || 0
 // stages-power 扁平化：按章节顺序排列的困难关卡列表
 const stagesPowerFlat = computed(() => {
   const flat = []
-  stagesPower.value.forEach(chapter => {
+  stagesPower.value.forEach((chapter, ci) => {
     chapter.forEach(stage => {
       flat.push({
         key: normalizeStageKey(stage.name),
         name: stage.name,
         power: stage.power,
+        chapter: ci,
       })
     })
   })
   return flat
 })
 
-// 困难关卡下拉选项（用于弹窗中选择目标战力）
-const hardStageOptions = computed(() =>
-  stagesPowerFlat.value.map(s => ({
-    value: s.key,
-    label: `${s.name}（${fmtPower(s.power)}）`,
-    power: s.power,
+// 困难关卡级联选项（先选章节，再选关卡，与页面上普通/困难模式一致）
+const hardStageCascaderOptions = computed(() =>
+  stagesPower.value.map((chapter, ci) => ({
+    id: 'ch' + ci,
+    label: `第${ci}章`,
+    children: chapter.map(stage => ({
+      id: normalizeStageKey(stage.name),
+      label: stage.name,
+      power: stage.power,
+    })),
   }))
 )
+
+// 由关卡 key 反查级联路径，如 'ch3' + '3-1'
+function cascaderPathFor(key) {
+  const s = stagesPowerFlat.value.find(x => x.key === key)
+  return s ? ['ch' + s.chapter, key] : []
+}
 
 // "0-3 HARD BOSS" / "0-3 BOSS" -> "0-3"
 function normalizeStageKey(section) {
@@ -413,14 +430,17 @@ function openPressureDialog() {
   // 自动填入下一关战力为目标战力
   const next = nextStageInfo.value
   targetPower.value = next ? next.power : 0
-  selectedHardStageKey.value = next ? next.key : ''
+  selectedHardStageCascader.value = next ? cascaderPathFor(next.key) : []
   pressureDialogVisible.value = true
 }
 
-// 下拉选择困难关卡 -> 读取其战力为目标战力
-function handleStageSelect(val) {
-  const opt = hardStageOptions.value.find(o => o.value === val)
-  if (opt) targetPower.value = opt.power
+// 级联选择困难关卡 -> 读取其战力为目标战力
+function handleStageCascaderChange(value) {
+  if (value && value.length === 2) {
+    const group = hardStageCascaderOptions.value.find(g => g.id === value[0])
+    const stage = group && group.children.find(c => c.id === value[1])
+    if (stage) targetPower.value = stage.power
+  }
 }
 
 function fmtPower(v) {
@@ -913,13 +933,13 @@ onMounted(() => {
     maxDistance: 21.0,
     spacing: 16.0
   })
-  ElNotification({
-    title: '装备洗练计算器发布！',
-    message: "现已发布装备洗练计算器！再也不怕洗装备不知道怎么洗了！详情请点击界面顶部“装备洗练计算器”查看！",
-    position: 'bottom-right',
-    type: 'info',
-    duration: 0,
-  })
+  //ElNotification({
+  //  title: '装备洗练计算器发布！',
+  //  message: "现已发布装备洗练计算器！再也不怕洗装备不知道怎么洗了！详情请点击界面顶部“装备洗练计算器”查看！",
+  //  position: 'bottom-right',
+  //  type: 'info',
+  //  duration: 0,
+  //})
 })
 
 // 组件卸载时
@@ -947,6 +967,15 @@ onUnmounted(() => {
   padding-bottom: 20px;
 }
 
+.content-wrapper h1 {
+  text-align: center;
+  margin: 20px 0;
+  font-size: 26px;
+  font-weight: bold;
+  color: #3553ff;
+  text-shadow: 0 2px 8px rgba(31, 162, 255, 0.15);
+}
+
 .container {
   max-width: 1200px;
   margin: 0 auto;
@@ -954,9 +983,12 @@ onUnmounted(() => {
 }
 
 .input-section {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
-  padding: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 22px 24px;
+  margin-bottom: 20px;
+  border: 1px solid #e3ecf7;
+  box-shadow: 0 8px 24px rgba(31, 162, 255, 0.06);
 }
 
 .select-container {
@@ -984,6 +1016,7 @@ onUnmounted(() => {
 .select-label {
   margin-bottom: 8px;
   font-weight: bold;
+  color: #3553ff;
 }
 
 .level-display {
@@ -994,6 +1027,13 @@ onUnmounted(() => {
 .level-info {
   font-size: 18px;
   margin-bottom: 10px;
+  color: #444;
+}
+
+.level-info #levelDisplay {
+  color: #1fa2ff;
+  font-weight: bold;
+  font-size: 24px;
 }
 
 .progress-container {
@@ -1004,6 +1044,8 @@ onUnmounted(() => {
 
 .progress-text {
   margin-bottom: 10px;
+  color: #666;
+  font-weight: bold;
 }
 
 .progress-bar {
@@ -1027,21 +1069,36 @@ onUnmounted(() => {
 }
 
 .output-section {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
-  padding: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 22px 24px;
   margin-bottom: 20px;
+  border: 1px solid #e3ecf7;
+  box-shadow: 0 8px 24px rgba(31, 162, 255, 0.06);
 }
 
 .output-section h3 {
   text-align: center;
   margin-bottom: 15px;
+  color: #3553ff;
 }
 
 .tit {
   text-align: center;
-  margin-bottom: 10px;
-  margin-top: 10px;
+  margin: 6px 0 18px;
+  font-size: 20px;
+  font-weight: bold;
+  color: #3553ff;
+}
+
+.tit::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  margin: 8px auto 0;
+  background: linear-gradient(90deg, #1fa2ff, #3553ff);
+  border-radius: 3px;
 }
 
 .resource-grid {
@@ -1053,25 +1110,36 @@ onUnmounted(() => {
 
 .resource-item {
   text-align: center;
-  padding: 10px;
-  background: #f0f0f0;
-  border-radius: 5px;
+  padding: 18px 12px;
+  background: #f7faff;
+  border: 1px solid #e3ecf7;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.resource-item:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(31, 162, 255, 0.1);
 }
 
 .resource-name {
   font-weight: bold;
-  margin-bottom: 5px;
+  color: #444;
+  margin-bottom: 6px;
 }
 
 .resource-value {
-  font-size: 18px;
+  font-size: 20px;
   color: #1fa2ff;
+  font-weight: bold;
 }
 
 .table-section {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 10px;
-  padding: 20px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 14px;
+  padding: 22px 24px;
+  border: 1px solid #e3ecf7;
+  box-shadow: 0 8px 24px rgba(31, 162, 255, 0.06);
 }
 
 .table-controls {
@@ -1089,18 +1157,32 @@ onUnmounted(() => {
 
 .data-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid #e3ecf7;
+  border-radius: 10px;
+  overflow: hidden;
 }
 
 .data-table th,
 .data-table td {
-  border: 1px solid #ddd;
-  padding: 8px;
+  padding: 10px 8px;
   text-align: center;
+  border-bottom: 1px solid #eef2f7;
 }
 
 .data-table th {
-  background-color: #f2f2f2;
+  background: linear-gradient(90deg, #1fa2ff, #3553ff);
+  color: #fff;
+  font-weight: bold;
+}
+
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table tbody tr:hover {
+  background: #f0f7ff;
 }
 
 .level-cell {
