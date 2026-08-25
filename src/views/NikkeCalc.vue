@@ -236,7 +236,7 @@
                   <div class="contact-id"><a href="https://nikkeoutpost.netlify.app" target= "_blank">doro112</a></div>
                 </div>
                 <div class="contact-item">
-                  <div class="contact-platform">搬运</div>
+                  <div class="contact-platform">搬运及战压计算功能</div>
                   <div class="contact-id">zbxzbx98</div>
                 </div>
               </div>
@@ -972,7 +972,6 @@ onUnmounted(() => {
   margin: 20px 0;
   font-size: 26px;
   font-weight: bold;
-  color: #3553ff;
   text-shadow: 0 2px 8px rgba(31, 162, 255, 0.15);
 }
 
@@ -1016,7 +1015,6 @@ onUnmounted(() => {
 .select-label {
   margin-bottom: 8px;
   font-weight: bold;
-  color: #3553ff;
 }
 
 .level-display {
@@ -1080,7 +1078,6 @@ onUnmounted(() => {
 .output-section h3 {
   text-align: center;
   margin-bottom: 15px;
-  color: #3553ff;
 }
 
 .tit {
@@ -1088,7 +1085,6 @@ onUnmounted(() => {
   margin: 6px 0 18px;
   font-size: 20px;
   font-weight: bold;
-  color: #3553ff;
 }
 
 .tit::after {
@@ -1172,7 +1168,7 @@ onUnmounted(() => {
 }
 
 .data-table th {
-  background: linear-gradient(90deg, #1fa2ff, #3553ff);
+  background: linear-gradient(0deg, #1fa2ff, #3553ff);
   color: #fff;
   font-weight: bold;
 }
@@ -1266,7 +1262,7 @@ onUnmounted(() => {
 
 .contact-platforms {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: 15px;
     margin-bottom: 20px
 }
