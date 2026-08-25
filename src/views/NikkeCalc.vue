@@ -7,6 +7,7 @@
         <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
         <a href="https://www.bilibili.com/toy/NikkeCalc/index.html" style="margin-left: 10px; margin-right: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
         <el-button color="#1fa2ff" plain @click="$router.push('AffixCalc')">装备洗练计算器</el-button>
+        <el-button color="#1fa2ff" plain @click="openPressureDialog" style="margin-left: 10px;">战压计算</el-button>
       </div>
 
       <div class="container">
@@ -199,6 +200,34 @@
           </div>
         </div>
       </div>
+
+      <!-- ==================== 战压计算弹窗 ==================== -->
+      <el-dialog v-model="pressureDialogVisible" title="战压计算" width="min(420px, 92vw)">
+        <div class="pressure-row">
+          <span class="pressure-label">当前战力：</span>
+          <el-input-number v-model="currentPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 200px;" />
+        </div>
+        <div class="pressure-row">
+          <span class="pressure-label">目标战力：</span>
+          <el-input-number v-model="targetPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 200px;" />
+        </div>
+        <div v-if="pressureCalc" class="pressure-result">
+          <div class="pressure-formula">
+            战压 =（{{ fmtPower(pressureCalc.tgt) }} - {{ fmtPower(pressureCalc.cur) }}）/ {{ fmtPower(pressureCalc.tgt) }}
+            = <b>{{ fmtPercent(pressureCalc.ratio) }}</b>
+          </div>
+          <div class="pressure-factor">
+            属性保留倍率（消减后）：<b class="pressure-big">{{ fmtPercent(pressureCalc.factor) }}</b>
+          </div>
+          <div class="pressure-note">
+            即属性被压制 {{ fmtPercent(1 - pressureCalc.factor) }}，仅保留 {{ fmtPercent(pressureCalc.factor) }}
+          </div>
+        </div>
+        <div v-else class="pressure-hint">请输入目标战力（需大于 0），结果将自动计算并显示。</div>
+        <template #footer>
+          <el-button @click="pressureDialogVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
   </div>
 </template>
 
@@ -231,6 +260,52 @@ const resourceOutput = ref({
 })
 
 const QuestionFilledIcon = QuestionFilled
+
+/* ==================== 战压计算 ==================== */
+
+const pressureDialogVisible = ref(false)
+const currentPower = ref(0)
+const targetPower = ref(0)
+
+/**
+ * 战力压制D类型：战力压比 -> 属性保留倍率
+ * @param {number} x 战力压比（小数），如 -0.05 表示 -5%
+ * @returns {number} 属性保留倍率（小数），如 0.51 表示属性变为 51%（即 -49%）
+ */
+function pressureFactorD(x) {
+  if (x >= 0)      return 1;                  // 无压制
+  if (x >= -0.005) return 5.00 * x + 0.9500;  // [-0.5%, 0)
+  if (x >= -0.01)  return 4.80 * x + 0.9490;  // [-1%, -0.5%)
+  if (x >= -0.037) return 4.00 * x + 0.9410;  // [-3.7%, -1%)
+  if (x >= -0.059) return 3.10 * x + 0.9080;  // [-5.9%, -3.7%)
+  if (x >= -0.091) return 2.03 * x + 0.8445;  // [-9.1%, -5.9%)
+  if (x >= -0.158) return 1.35 * x + 0.7830;  // [-15.8%, -9.1%)
+  if (x >= -0.499) return 1.00 * x + 0.7280;  // [-49.9%, -15.8%)
+  return 0.10;                                // < -49.9% 跳至 -90%
+}
+
+function openPressureDialog() {
+  pressureDialogVisible.value = true
+}
+
+// 战压 =（目标战力 - 当前战力）/ 目标战力，再换算为属性保留倍率
+const pressureCalc = computed(() => {
+  const cur = Number(currentPower.value) || 0
+  const tgt = Number(targetPower.value) || 0
+  if (tgt <= 0) return null
+  const ratio = (tgt - cur) / tgt
+  const factor = pressureFactorD(ratio)
+  return { cur, tgt, ratio, factor }
+})
+
+function fmtPower(v) {
+  return Number(v).toLocaleString('zh-CN')
+}
+
+function fmtPercent(v) {
+  const s = (v * 100).toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+  return s + '%'
+}
 
 // 国服等级修正选项
 const cnLevelCorrectionOptions = [
@@ -918,6 +993,59 @@ onUnmounted(() => {
     padding: 15px;
     background: #667eea0d;
     border-radius: 8px
+}
+
+.pressure-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.pressure-label {
+  font-weight: bold;
+  color: #333;
+  min-width: 72px;
+}
+
+.pressure-result {
+  margin-top: 6px;
+  padding: 14px 16px;
+  background: #f7faff;
+  border: 1px solid #e3ecf7;
+  border-radius: 10px;
+  line-height: 2;
+}
+
+.pressure-formula {
+  color: #444;
+  font-size: 14px;
+}
+
+.pressure-formula b {
+  color: #3553ff;
+}
+
+.pressure-factor {
+  font-size: 16px;
+  color: #222;
+}
+
+.pressure-big {
+  color: #1fa2ff;
+  font-size: 22px;
+  margin-left: 4px;
+}
+
+.pressure-note {
+  color: #666;
+  font-size: 13px;
+}
+
+.pressure-hint {
+  color: #909399;
+  font-size: 13px;
+  padding: 6px 0;
 }
 
 @media (max-width: 768px) {
