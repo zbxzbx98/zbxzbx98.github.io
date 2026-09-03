@@ -479,20 +479,22 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     // ==================== 候选分配（改进版） ====================
 
     // 装备状态系数：在该装备上新增洗练工作的相对代价
-    // （高阶已有目标难动、空槽/低阶可洗的便宜）
+    // （高阶已有目标难动、空槽/低阶可洗的便宜）。
+    // 注意：非目标（无关）词条在洗练时会被直接洗掉，与空栏位等价，
+    // 不应计入“保留负担”——否则会误导分配，把新目标塞给必须保留
+    // 目标词条、栏位紧张的装备，抬高期望成本。
     function gearFactor(g) {
       const st = localStates[originalStartLocalIds[g]];
       let f = 1;
       for (const code of st.slots) {
-        if (code === 0) { f -= 0.15; continue; }
+        if (code === 0) { continue; }
         if (isTargetCode(code)) {
           const { value } = decodeTargetCode(code);
           if (value >= 11) f += 1.4;
           else if (value >= 6) f += 0.6;
           else f += 0.2;
-        } else {
-          f += 0.4;
         }
+        // 非目标词条：洗掉即可，不加负担
       }
       return Math.max(0.5, f);
     }
