@@ -514,11 +514,24 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       // kBest：每件目标 ≤ 11 阶，且至少覆盖 committed 载体，总槽位 ≤ 12
       const kBest = new Array(m).fill(0);
       for (let j = 0; j < m; j++) {
-        if (deficit[j] <= 0) { kBest[j] = 0; continue; }
-        let committed = 0;
-        for (let g = 0; g < n; g++) if (cur[g][j] >= 11) committed++;
-        kBest[j] = Math.max(committed, Math.ceil(targets[j].req / 11));
-        if (kBest[j] > 4) kBest[j] = 4;
+        if (deficit[j] > 0) {
+          let committed = 0;
+          for (let g = 0; g < n; g++) if (cur[g][j] >= 11) committed++;
+          kBest[j] = Math.max(committed, Math.ceil(targets[j].req / 11));
+          if (kBest[j] > 4) kBest[j] = 4;
+          continue;
+        }
+        // 已有合计已 ≥ 需求：不新增承担装备，但需保留足够多的已有贡献
+        // 使合计仍覆盖需求（否则 rem 无处摊分，分配会失败）。
+        const contribs = [];
+        for (let g = 0; g < n; g++) if (cur[g][j] > 0) contribs.push([cur[g][j], g]);
+        contribs.sort((a, b) => b[0] - a[0]);
+        let acc = 0;
+        for (const [v] of contribs) {
+          acc += v;
+          kBest[j]++;
+          if (acc >= targets[j].req) break;
+        }
       }
       if (kBest.reduce((a, b) => a + b, 0) > 3 * n) return null;
 
@@ -572,7 +585,33 @@ function solveCharacter(currentStr, targetStr, options = {}) {
           left--;
         }
       }
-      return sub;
+      return trimExcessSub(sub);
+    }
+
+    // 释放超额保留：若某目标现有贡献合计已超过需求（例如最大装弹数已由一件
+    // 装备单独满足），其它装备上“多余”的该词条并不需要强制保留——强制保留只会
+    // 迫使这些装备在洗其它词条时锁定/保护它，显著抬高期望成本。这里只保留
+    // “合计刚好覆盖需求”的若干最大贡献者，其余装备对该目标的子目标清零
+    // （多余词条允许被洗掉，反正不影响达标）。
+    function trimExcessSub(subArr) {
+      for (let j = 0; j < m; j++) {
+        const req = targets[j].req;
+        let total = 0;
+        for (let g = 0; g < n; g++) total += subArr[g][j];
+        if (total <= req) continue;
+        const idxs = [];
+        for (let g = 0; g < n; g++) if (subArr[g][j] > 0) idxs.push(g);
+        idxs.sort((a, b) => subArr[b][j] - subArr[a][j]);
+        const keep = new Array(n).fill(false);
+        let acc = 0;
+        for (const g of idxs) {
+          keep[g] = true;
+          acc += subArr[g][j];
+          if (acc >= req) break;
+        }
+        for (let g = 0; g < n; g++) if (!keep[g]) subArr[g][j] = 0;
+      }
+      return subArr;
     }
 
     // 改进候选：仅当启用了精确策略且当前状态存在“有价值的现有目标”（≥11 阶）时
@@ -758,6 +797,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         throw new Error('目标阶数分配失败，请检查目标是否可行。');
       }
     }
+    // 释放超额保留（已有贡献超出需求的部分不再强制保留）
+    trimExcessSub(sub);
 
     // 5) 候选评估：宽松精度快速排序，胜者再用精确精度求解用于展示
     const gearCostCache = new Map();
