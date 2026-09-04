@@ -478,23 +478,35 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
     // ==================== 候选分配（改进版） ====================
 
+    // 每件装备已有目标词条的“真实阶数”（不受角色目标需求 cap 影响）：
+    // 局部状态编码会把贡献截断到 min(15, 需求)，但装备上实际挂着的是真实阶数，
+    // 例如需求 dr5 时装备的 dr12 只会被记成 5，若用截断值评估会严重低估该装备
+    // 的保留负担，导致分配把新词条塞给它。
+    const gearTargetTiers = gearTexts.map(txt => {
+      const map = new Map();
+      for (const tok of txt.split(',')) {
+        const mm = tok.trim().match(/^([01])(uy|gj|bs|fy|xl|xs|bj|mz|dr)(\d+)$/);
+        if (!mm) continue;
+        const name = mm[2];
+        const tier = Number(mm[3]);
+        if (name === 'wd') continue;
+        const tj = targetIndexByEffect.get(EFFECT_INDEX.get(name));
+        if (tj !== undefined) map.set(tj, tier);
+      }
+      return map;
+    });
+
     // 装备状态系数：在该装备上新增洗练工作的相对代价
     // （高阶已有目标难动、空槽/低阶可洗的便宜）。
     // 注意：非目标（无关）词条在洗练时会被直接洗掉，与空栏位等价，
     // 不应计入“保留负担”——否则会误导分配，把新目标塞给必须保留
     // 目标词条、栏位紧张的装备，抬高期望成本。
     function gearFactor(g) {
-      const st = localStates[originalStartLocalIds[g]];
       let f = 1;
-      for (const code of st.slots) {
-        if (code === 0) { continue; }
-        if (isTargetCode(code)) {
-          const { value } = decodeTargetCode(code);
-          if (value >= 11) f += 1.4;
-          else if (value >= 6) f += 0.6;
-          else f += 0.2;
-        }
-        // 非目标词条：洗掉即可，不加负担
+      for (const [, tier] of gearTargetTiers[g]) {
+        if (tier >= 11) f += 1.4;
+        else if (tier >= 6) f += 0.6;
+        else f += 0.2;
       }
       return Math.max(0.5, f);
     }
