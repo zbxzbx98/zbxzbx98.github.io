@@ -383,18 +383,28 @@
             <div v-if="isDone" class="done-banner">当前角色已满足目标词条，无需操作（d0）。</div>
             <template v-else>
               <div class="action-section">
-                <h4>允许秘钥时的下一步操作</h4>
-                <ol class="action-list">
-                  <li v-for="(tok, idx) in actionTokens(result.action)" :key="idx">{{ translateToken(tok, 'character') }}</li>
-                </ol>
-                <p class="note">注：允许秘钥策略中的秘钥锁为一次性，本次洗练后自动解除；仅在本次洗练有超过阈值 p 的概率到达更优状态时才使用秘钥锁，否则回退用石头锁/直接洗练。</p>
+                <h4>允许秘钥时的下一步操作（四件装备）</h4>
+                <div class="gear-action-list">
+                  <div class="gear-action-row" v-for="ga in characterKeyActions" :key="'k' + ga.gear">
+                    <span class="gear-action-gear">装备{{ gearNames[ga.gear - 1] }}</span>
+                    <ol class="action-list gear-action-body">
+                      <li v-for="(tok, idx) in ga.tokens" :key="idx">{{ translateToken(tok, 'character') }}</li>
+                    </ol>
+                  </div>
+                </div>
+                <p class="note">注：四件装备的洗练互不影响，可任意顺序进行；允许秘钥策略中的秘钥锁为一次性，本次洗练后自动解除；仅在本次洗练有超过阈值 p 的概率到达更优状态时才使用秘钥锁，否则回退用石头锁/直接洗练。</p>
               </div>
 
               <div class="action-section">
-                <h4>全石头策略的下一步操作</h4>
-                <ol class="action-list">
-                  <li v-for="(tok, idx) in actionTokens(result.stoneOnlyAction)" :key="idx">{{ translateToken(tok, 'character', true) }}</li>
-                </ol>
+                <h4>全石头策略的下一步操作（四件装备）</h4>
+                <div class="gear-action-list">
+                  <div class="gear-action-row" v-for="ga in characterStoneActions" :key="'s' + ga.gear">
+                    <span class="gear-action-gear">装备{{ gearNames[ga.gear - 1] }}</span>
+                    <ol class="action-list gear-action-body">
+                      <li v-for="(tok, idx) in ga.tokens" :key="idx">{{ translateToken(tok, 'character', true) }}</li>
+                    </ol>
+                  </div>
+                </div>
                 <p class="note">注：石头锁为永久锁定，可在后续洗练前免费解除；解锁免费。</p>
               </div>
 
@@ -1484,6 +1494,29 @@ function actionTokens(actionStr) {
   return String(actionStr).split(',').map(s => s.trim()).filter(Boolean)
 }
 
+// 角色版：四件装备各自的下一步动作
+// 新版求解器返回 result.gearActions（每件装备的 keyTokens / stoneTokens）；
+// 旧结果没有该字段时，回退到原来的“单件首步”展示。
+const characterKeyActions = computed(() => characterGearActionRows('keyTokens', 'action'))
+const characterStoneActions = computed(() => characterGearActionRows('stoneTokens', 'stoneOnlyAction'))
+
+function characterGearActionRows(tokensKey, actionKey) {
+  const r = result.value
+  if (!r || r.mode !== 'character') return []
+  const actions = Array.isArray(r.gearActions) ? r.gearActions : []
+  if (actions.length) {
+    return actions.map(ga => ({
+      gear: ga.gear,
+      tokens: (ga[tokensKey] && ga[tokensKey].length) ? ga[tokensKey] : ['d0'],
+    }))
+  }
+  // 兼容旧结果（只有单件首步）
+  const fallback = actionTokens(r[actionKey])
+  if (!fallback.length) return []
+  const gear = Number(String(fallback[0]).charAt(0))
+  return [{ gear: gear >= 1 && gear <= 4 ? gear : 1, tokens: fallback }]
+}
+
 function translateToken(tok, mode, isStone = false) {
   const num = ['', '一', '二', '三', '四']
   if (tok === 'd0') return '已经达标，无需操作'
@@ -1913,6 +1946,36 @@ code {
   margin: 0;
   padding-left: 22px;
   line-height: 2;
+}
+
+/* 角色版：四件装备各自的下一步动作 */
+.gear-action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gear-action-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: #f7faff;
+  border: 1px solid #e3ecf7;
+  border-radius: 8px;
+}
+
+.gear-action-gear {
+  flex-shrink: 0;
+  min-width: 62px;
+  font-weight: bold;
+  color: #3553ff;
+  line-height: 2;
+}
+
+.gear-action-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .note {

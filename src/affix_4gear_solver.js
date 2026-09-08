@@ -403,6 +403,14 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       action: 'd0',
       text: '0/0-0|d0',
       stoneOnlyAction: 'd0',
+      // 已达标时每件装备都无需操作（与分解路径返回结构保持一致）
+      gearActions: originalStartLocalIds.map((_, g) => ({
+        gear: g + 1,
+        subTargets: '',
+        cost: '0/0-0',
+        keyTokens: ['d0'],
+        stoneTokens: ['d0'],
+      })),
       expected: {
         stoneOnly: 0,
         withKeysStone: 0,
@@ -470,6 +478,14 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       action: 'd0',
       text: '0/0-0|d0',
       stoneOnlyAction: 'd0',
+      // 已达标时每件装备都无需操作（与正常返回结构保持一致）
+      gearActions: originalStartLocalIds.map((_, g) => ({
+        gear: g + 1,
+        subTargets: '',
+        cost: '0/0-0',
+        keyTokens: ['d0'],
+        stoneTokens: ['d0'],
+      })),
       expected: { stoneOnly: 0, withKeysStone: 0, withKeysKeys: 0 },
       approx: true,
       graph: { mode: 'decomposed', gears: n, perGearSolves: 0 },
@@ -892,6 +908,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     let totalKeys = 0;
     const detail = [];
     const gearResults = [];
+    // 每件装备各自子策略的“下一步动作”（不再只给负担最重的一件）
+    const gearActions = [];
     let chosen = -1;
     let chosenWork = -1;
 
@@ -915,6 +933,27 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         cost: r.cost || '0/0-0',
         action: r.action || 'd0',
       });
+
+      // 单件装备的下一步：免费解锁 → 新锁 → 洗练，与单装备页展示顺序一致。
+      // 各装备洗练互不影响，可任意交错，故每件都给出各自子策略的首步。
+      const gearKeyTokens = [];
+      for (const u of r.preUnlock || []) gearKeyTokens.push(`${g + 1}u${u}`);
+      for (const t of String(r.action || '').split(',').map(s => s.trim()).filter(Boolean)) {
+        gearKeyTokens.push(`${g + 1}${t}`);
+      }
+      const gearStoneTokens = [];
+      for (const u of r.stoneOnlyPreUnlock || []) gearStoneTokens.push(`${g + 1}u${u}`);
+      for (const t of String(r.stoneOnlyAction || '').split(',').map(s => s.trim()).filter(Boolean)) {
+        gearStoneTokens.push(`${g + 1}${t}`);
+      }
+      gearActions.push({
+        gear: g + 1,
+        subTargets: subs.join(','),
+        cost: r.cost || '0/0-0',
+        keyTokens: gearKeyTokens.length ? gearKeyTokens : ['d0'],
+        stoneTokens: gearStoneTokens.length ? gearStoneTokens : ['d0'],
+      });
+
       if (work > chosenWork) {
         chosenWork = work;
         chosen = g;
@@ -922,7 +961,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     }
 
     if (chosen === -1 || !gearResults[chosen]) {
-      return d0result;
+      // 没有任何装备需要洗练：返回 d0，但保留逐件结构（与正常返回一致）
+      return { ...d0result, detail, gearActions };
     }
 
     const keyRes = gearResults[chosen];
@@ -945,9 +985,12 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
     return {
       cost: costStr,
+      // 兼容旧字段：仍返回“负担最重装备”的首步（默认允许秘钥）。
       action: keyTokens.join(','),
       text: `${costStr}|${keyTokens.join(',')}`,
       stoneOnlyAction: stoneTokens.join(','),
+      // 4 件装备各自的下一步动作（角色版 UI 逐件展示）
+      gearActions,
       expected: {
         stoneOnly: totalStone,
         withKeysStone: totalKeyStone,
