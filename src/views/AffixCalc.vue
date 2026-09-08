@@ -387,7 +387,8 @@
                 <div class="gear-action-list">
                   <div class="gear-action-row" v-for="ga in characterKeyActions" :key="'k' + ga.gear">
                     <span class="gear-action-gear">装备{{ gearNames[ga.gear - 1] }}</span>
-                    <ol class="action-list gear-action-body">
+                    <span v-if="ga.done" class="gear-action-done gear-action-body">已满足要求，无需操作</span>
+                    <ol v-else class="action-list gear-action-body">
                       <li v-for="(tok, idx) in ga.tokens" :key="idx">{{ translateToken(tok, 'character') }}</li>
                     </ol>
                   </div>
@@ -400,7 +401,8 @@
                 <div class="gear-action-list">
                   <div class="gear-action-row" v-for="ga in characterStoneActions" :key="'s' + ga.gear">
                     <span class="gear-action-gear">装备{{ gearNames[ga.gear - 1] }}</span>
-                    <ol class="action-list gear-action-body">
+                    <span v-if="ga.done" class="gear-action-done gear-action-body">已满足要求，无需操作</span>
+                    <ol v-else class="action-list gear-action-body">
                       <li v-for="(tok, idx) in ga.tokens" :key="idx">{{ translateToken(tok, 'character', true) }}</li>
                     </ol>
                   </div>
@@ -1505,16 +1507,22 @@ function characterGearActionRows(tokensKey, actionKey) {
   if (!r || r.mode !== 'character') return []
   const actions = Array.isArray(r.gearActions) ? r.gearActions : []
   if (actions.length) {
-    return actions.map(ga => ({
-      gear: ga.gear,
-      tokens: (ga[tokensKey] && ga[tokensKey].length) ? ga[tokensKey] : ['d0'],
-    }))
+    return actions.map(ga => {
+      const tokens = (ga[tokensKey] && ga[tokensKey].length) ? ga[tokensKey] : ['d0']
+      // 该装备本策略下无需操作（子策略返回 d0）
+      const done = tokens.length === 1 && tokens[0] === 'd0'
+      return { gear: ga.gear, done, tokens }
+    })
   }
   // 兼容旧结果（只有单件首步）
   const fallback = actionTokens(r[actionKey])
   if (!fallback.length) return []
   const gear = Number(String(fallback[0]).charAt(0))
-  return [{ gear: gear >= 1 && gear <= 4 ? gear : 1, tokens: fallback }]
+  return [{
+    gear: gear >= 1 && gear <= 4 ? gear : 1,
+    done: fallback.length === 1 && fallback[0] === 'd0',
+    tokens: fallback,
+  }]
 }
 
 function translateToken(tok, mode, isStone = false) {
@@ -1976,6 +1984,11 @@ code {
 .gear-action-body {
   flex: 1;
   min-width: 0;
+}
+
+.gear-action-done {
+  color: #529b2e;
+  line-height: 2;
 }
 
 .note {
