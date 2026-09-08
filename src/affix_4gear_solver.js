@@ -936,22 +936,26 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
       // 单件装备的下一步：免费解锁 → 新锁 → 洗练，与单装备页展示顺序一致。
       // 各装备洗练互不影响，可任意交错，故每件都给出各自子策略的首步。
-      const gearKeyTokens = [];
-      for (const u of r.preUnlock || []) gearKeyTokens.push(`${g + 1}u${u}`);
-      for (const t of String(r.action || '').split(',').map(s => s.trim()).filter(Boolean)) {
-        gearKeyTokens.push(`${g + 1}${t}`);
-      }
-      const gearStoneTokens = [];
-      for (const u of r.stoneOnlyPreUnlock || []) gearStoneTokens.push(`${g + 1}u${u}`);
-      for (const t of String(r.stoneOnlyAction || '').split(',').map(s => s.trim()).filter(Boolean)) {
-        gearStoneTokens.push(`${g + 1}${t}`);
-      }
+      // 注意：单装备求解器在“该装备已满足子目标”时返回 action='d0'
+      //（子目标已达标但整体目标未达标时会出现），此时不能加装备前缀，
+      // 否则会输出 `1d0` 这种无法翻译的 token。
+      const perGearTokens = (unlock, actionStr) => {
+        if (String(actionStr || '').trim() === 'd0') return ['d0'];
+        const out = [];
+        for (const u of unlock || []) out.push(`${g + 1}u${u}`);
+        for (const t of String(actionStr || '').split(',').map(s => s.trim()).filter(Boolean)) {
+          out.push(`${g + 1}${t}`);
+        }
+        return out.length ? out : ['d0'];
+      };
+      const gearKeyTokens = perGearTokens(r.preUnlock, r.action);
+      const gearStoneTokens = perGearTokens(r.stoneOnlyPreUnlock, r.stoneOnlyAction);
       gearActions.push({
         gear: g + 1,
         subTargets: subs.join(','),
         cost: r.cost || '0/0-0',
-        keyTokens: gearKeyTokens.length ? gearKeyTokens : ['d0'],
-        stoneTokens: gearStoneTokens.length ? gearStoneTokens : ['d0'],
+        keyTokens: gearKeyTokens,
+        stoneTokens: gearStoneTokens,
       });
 
       if (work > chosenWork) {
