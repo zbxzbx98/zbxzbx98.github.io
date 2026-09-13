@@ -656,8 +656,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     })();
     const improvedSub = usePrecise && hasHighExisting ? buildAllocationImproved() : null;
 
-    // 分配：A[g][j] = 装备 g 是否承担目标 j（已有贡献的装备固定保留）
-    const A = cur.map(row => row.map(v => v > 0));
+    // 分配：A[g][j] = 装备 g 是否承担目标 j（由下面的 tryAssign 填充）
+    const A = cur.map(row => row.map(() => false));
 
     // 1) 概率加权成本表决定每个目标“拆给几件装备”最划算
     //
@@ -677,7 +677,49 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       7.5012, 8.9182, 11.9884, 23.655, 28.655, 36.9884, 53.655, 103.655,
     ];
 
-    const curCnt = j => A.reduce((a, row) => a + (row[j] ? 1 : 0), 0);
+    // 每个目标至少 ceil(req/cap) 件装备才能承载其总阶数（容量下界）。
+    // 注意：已有贡献（cur>0）只是“资产”而非硬约束——能保留最好（省去重洗），
+    // 但栏位不够时必须允许放弃低阶旧贡献。否则 4 件装备各挂 1 阶同类词条会被
+    // 当成 4 个必须保留的承担位，对可行目标误报“栏位不足”。
+    const capacityNeed = j => Math.max(1, Math.ceil(targets[j].req / targets[j].cap));
+
+    const existingCount = j => {
+      let c = 0;
+      for (let g = 0; g < n; g++) if (cur[g][j] > 0) c++;
+      return c;
+    };
+
+    // 已达标目标：保留“刚好覆盖需求”的最大若干贡献者即可（其余允许洗掉），
+    // 与 trimExcessSub 的口径保持一致。
+    function coverCount(j) {
+      const req = targets[j].req;
+      const contribs = [];
+      for (let g = 0; g < n; g++) if (cur[g][j] > 0) contribs.push(cur[g][j]);
+      contribs.sort((a, b) => b - a);
+      let acc = 0;
+      let c = 0;
+      for (const v of contribs) {
+        acc += v;
+        c++;
+        if (acc >= req) break;
+      }
+      return c;
+    }
+
+    // curSlots[g][j] = 装备 g 上有几个栏位挂着目标 j 的词条；
+    // distinctCount[g] = 装备 g 上挂着目标词条的“不同目标数”（旧实现的
+    // 空松度启发式以它为准：3 - distinctCount 表示还能再放几个新目标）。
+    // 锁定栏位不是硬约束：单装备求解器可以免费解锁后重用该栏位。
+    const curSlots = cur.map(row => row.map(() => 0));
+    for (let g = 0; g < n; g++) {
+      const st = localStates[originalStartLocalIds[g]];
+      for (const code of st.slots) {
+        if (!isTargetCode(code)) continue;
+        curSlots[g][decodeTargetCode(code).j]++;
+      }
+    }
+    const distinctCount = curSlots.map(row => row.reduce((a, c) => a + (c > 0 ? 1 : 0), 0));
+
     const proxyCost = (j, k) => {
       const w = targets[j].weight;
       let C = COST10;
@@ -689,16 +731,19 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       return k * C[Math.ceil(targets[j].req / k) - 1];
     };
 
-    // 每个目标至少 ceil(req/15) 件装备才能承载其总阶数（容量下界）。
-    // 已有贡献的装备（cur>0）固定保留，容量缺口 = 新增装备数 × 15，
-    // 故 kBest[j] ≥ ceil(req/15) 时容量必然足够。
+    // 每个目标至少 ceil(req/cap) 件装备承担；已达标目标保留其全部现有承担者
+    // （不重洗），其余情况由成本表决定拆给几件最划算。
     const kBest = new Array(m).fill(0);
     for (let j = 0; j < m; j++) {
       if (deficit[j] <= 0) {
-        kBest[j] = curCnt(j);
+        // 已达标：保留现有承担者即可，不新增承担装备
+        kBest[j] = Math.max(existingCount(j), capacityNeed(j));
         continue;
       }
-      const minK = Math.max(curCnt(j), Math.ceil(targets[j].req / 15));
+      // 已有贡献的装备优先继续承担该目标（近似“免费”多一个承担位），
+      // 故成本搜索的下界取 max(容量下界, 现有承担者数)；总栏位不够时
+      // 下面的预算裁剪仍可把它压到容量下界，不会误报“栏位不足”。
+      const minK = Math.max(capacityNeed(j), Math.min(existingCount(j), 4));
       let best = minK;
       let bestCost = Infinity;
       for (let k = minK; k <= 4; k++) {
@@ -717,8 +762,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
       let bestJ = -1;
       let bestPenalty = Infinity;
       for (let j = 0; j < m; j++) {
-        const minK = Math.max(curCnt(j), Math.ceil(targets[j].req / 15));
-        if (kBest[j] <= minK) continue;
+        if (kBest[j] <= capacityNeed(j)) continue;
         const pen = proxyCost(j, kBest[j] - 1) - proxyCost(j, kBest[j]);
         if (pen < bestPenalty) {
           bestPenalty = pen;
@@ -738,10 +782,18 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     for (let g = 0; g < n; g++) factorsForAssign.push(gearFactor(g));
 
     function tryAssign(needArr) {
-      const mat = cur.map(row => row.map(v => v > 0));
+      // 从空矩阵开始：已有贡献是“资产”而非硬约束——能保留就保留（省重洗），
+      // 栏位不够时必须允许放弃低阶旧贡献，否则会对可行目标误报“栏位不足”。
+      const mat = cur.map(row => row.map(() => false));
       const cnt = new Array(m).fill(0);
-      for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) if (mat[g][j]) cnt[j]++;
-      const freeSlots = mat.map((row, g) => 3 - row.reduce((s, x) => s + (x ? 1 : 0), 0));
+      // freeSlots：真实剩余栏位（3 个物理栏位都可承载目标词条，锁定栏位可由
+      //            单装备求解器免费解锁重用）——用于可行性判断。
+      // pending：该装备上“尚未被承担”的已有目标词条数；排序用的空松度
+      //          room = freeSlots - pending，等价于旧实现里
+      //          “3 - 已挂目标词条数 - 新增承担数”的启发式。
+      const pending = distinctCount.slice();
+      const freeSlots = new Array(n).fill(3);
+      const room = freeSlots.map((f, g) => f - pending[g]);
 
       // 缺口大的目标优先，其次按总需求降序
       const order = targets.map((_, j) => j).sort((a, b) =>
@@ -757,16 +809,26 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         for (let g = 0; g < n; g++) {
           if (!mat[g][j] && freeSlots[g] > 0) cands.push(g);
         }
-        // 优先剩余栏位多、洗练代价低的装备
+        // 优先：已有该目标贡献（免费进度，保留省重洗）> 贡献大 >
+        //       空松度大（不容易挤死后续目标）> 洗练代价低
         cands.sort((a, b) =>
-          (freeSlots[b] - freeSlots[a]) ||
+          ((cur[a][j] > 0 ? 0 : 1) - (cur[b][j] > 0 ? 0 : 1)) ||
+          (cur[b][j] - cur[a][j]) ||
+          (room[b] - room[a]) ||
           (factorsForAssign[a] - factorsForAssign[b]) ||
           (a - b)
         );
         for (const g of cands) {
-          mat[g][j] = true; freeSlots[g]--; cnt[j]++;
+          const had = curSlots[g][j] > 0;
+          mat[g][j] = true;
+          freeSlots[g]--; cnt[j]++;
+          if (had) pending[g]--;
+          room[g] = freeSlots[g] - pending[g];
           if (dfs(k)) return true;
-          mat[g][j] = false; freeSlots[g]++; cnt[j]--;
+          if (had) pending[g]++;
+          room[g] = freeSlots[g] - pending[g];
+          mat[g][j] = false;
+          freeSlots[g]++; cnt[j]--;
         }
         return false;
       }
@@ -775,10 +837,12 @@ function solveCharacter(currentStr, targetStr, options = {}) {
 
     let assigned = tryAssign(kBest);
     if (!assigned) {
-      // 从 kBest 逐步回退（优先砍“多拆一件边际收益最小”的目标），最坏退到容量下界
+      // 从 kBest 逐步回退（优先砍“多拆一件边际收益最小”的目标），
+      // 先退到“尽量保留现有贡献”的需求，最后退到纯容量下界。
       const minNeed = targets.map((t, j) =>
-        deficit[j] <= 0 ? curCnt(j) : Math.max(curCnt(j), Math.ceil(t.req / 15))
+        deficit[j] <= 0 ? Math.max(coverCount(j), capacityNeed(j)) : capacityNeed(j)
       );
+      const hardNeed = targets.map((t, j) => capacityNeed(j));
       const curNeed = kBest.slice();
       while (!assigned) {
         let bestJ = -1;
@@ -793,6 +857,8 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         assigned = tryAssign(curNeed);
       }
       if (!assigned) assigned = tryAssign(minNeed);
+      // 最后兜底：已达标目标也允许放弃旧贡献重洗，只保证容量可行
+      if (!assigned) assigned = tryAssign(hardNeed);
     }
 
     if (!assigned) {
@@ -800,19 +866,22 @@ function solveCharacter(currentStr, targetStr, options = {}) {
     }
     for (let g = 0; g < n; g++) for (let j = 0; j < m; j++) A[g][j] = assigned[g][j];
 
-    // 4) 逐级分配阶数：同一目标在承担它的装备间尽量摊平
-    //    （优先降低每件装备该目标的需求值，避免把某件装备推到
-    //      13~15 阶这类 1% 概率的高档位；次级再按总负载破平局）
-    const sub = cur.map(row => row.slice());
+    // 4) 逐级分配阶数：未承担目标 j 的装备不再保留该目标的旧贡献（sub=0，
+    //    允许被洗掉），承担装备从其现有贡献起算，再把缺口在承担装备间尽量摊平
+    //    （优先降低每件装备该目标的需求值，避免把某件装备推到 13~15 阶这类
+    //      1% 概率的高档位；次级再按总负载破平局）
+    const sub = cur.map((row, g) => row.map((v, j) => (A[g][j] ? v : 0)));
     for (let j = 0; j < m; j++) {
-      let rem = deficit[j];
+      let kept = 0;
+      for (let g = 0; g < n; g++) kept += sub[g][j];
+      let rem = targets[j].req - kept;
       let guard = 0;
       while (rem > 0) {
-        if (++guard > 200) break;
+        if (++guard > 400) break;
         let best = -1;
         let bestScore = Infinity;
         for (let g = 0; g < n; g++) {
-          if (!A[g][j] || sub[g][j] >= 15) continue;
+          if (!A[g][j] || sub[g][j] >= targets[j].cap) continue;
           const score = sub[g][j] * 100 + sub[g].reduce((a, b) => a + b, 0);
           if (score < bestScore) {
             bestScore = score;
