@@ -931,6 +931,11 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         digits: eps < 1e-6 ? 4 : digitsOpt,
         // 秘钥使用概率阈值透传给单装备求解器
         p: options.p ?? 0.1,
+        // 洗练规则版本透传（'cn' 国服版 / 'global' 国际服版）
+        ruleVersion: options.ruleVersion === 'global' ? 'global' : 'cn',
+        // 角色版分解会调用很多次单装备求解：不细分阶数档位以控制耗时
+        // （国际服版的“不会获得原阶数”仍按条件分布平均生效）
+        bandTier: false,
       });
       gearCostCache.set(key, r);
       return r;
