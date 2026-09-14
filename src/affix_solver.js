@@ -1002,61 +1002,6 @@ function solve(currentStr, targetStr, options = {}) {
    * ========================================================== */
 
 
-  const slotOptions = [];
-
-
-  /**
-   * wd
-   */
-  slotOptions.push(0);
-
-
-  /**
-   * 每个目标：
-   *
-   * 未达标
-   * 已达标
-   */
-  for (
-    let j = 0;
-    j < m;
-    j++
-  ) {
-
-    slotOptions.push(
-      codeTarget(j, false),
-      codeTarget(j, true)
-    );
-
-  }
-
-
-  /**
-   * 如果存在该类型非目标词条，
-   * 加入对应压缩状态。
-   */
-  if (
-    nonTarget10 > 0
-  ) {
-
-    slotOptions.push(
-      O10
-    );
-
-  }
-
-
-  if (
-    nonTarget12 > 0
-  ) {
-
-    slotOptions.push(
-      O12
-    );
-
-  }
-
-
   let states = [];
 
   let idByKey =
@@ -1076,25 +1021,56 @@ function solve(currentStr, targetStr, options = {}) {
 
 
   /**
-   * 每个压缩栏位可搭配的“阶数档位”。
+   * 按需把状态放进状态空间（可达状态闭包）。
    *
-   * 国服版 / 关闭档位时恒为 0；国际服版下只有“未达标目标词条”且
-   * 该目标存在 11 阶以上的未达标阶数时才需要区分低档 / 高档。
+   * 旧实现枚举“栏位 × 阶数档位 × 锁”的完整笛卡尔积，
+   * 国际服版多目标时状态数会超过 BAND_STATE_LIMIT，
+   * 只能退化关闭档位（未达标阶数按条件分布平均）。
+   *
+   * 现在改为从初始状态出发按需发现状态：
+   * 状态数从完整积降到“真正可达”的那部分
+   * （3 目标 15 阶：10829 -> 4981），档位得以保留；
+   * 且因为可达集对转移封闭，数值与完整积模型完全一致。
    */
-  function bandOptionsOf(c) {
+  function internState(
+    slots,
+    lock,
+    bands
+  ) {
 
-    if (!bandTierMode) return [0];
+    const key =
+      stateKey(slots, lock, bands);
 
-    if (c === 0 || c === O10 || c === O12) return [0];
 
-    if (isGoodCode(c)) return [0];
+    let id =
+      idByKey.get(key);
 
-    const j =
-      targetOfCode(c);
 
-    return tierSetOfTarget[j].badHigh.length
-      ? [0, 1]
-      : [0];
+    if (id === undefined) {
+
+      id = states.length;
+
+
+      states.push({
+
+        slots,
+
+        lock,
+
+        bands,
+
+        goal:
+          isGoalSlots(slots),
+
+      });
+
+
+      idByKey.set(key, id);
+
+    }
+
+
+    return id;
 
   }
 
@@ -1105,139 +1081,90 @@ function solve(currentStr, targetStr, options = {}) {
   const BAND_STATE_LIMIT = 9000;
 
 
-  function buildStates() {
+  /**
+   * 围绕初始状态发现一次可达闭包。
+   *
+   * 会清空状态空间与动作 / 转移缓存，供档位模式超限时退回重算。
+   */
+  function buildReachable() {
 
     states = [];
 
     idByKey = new Map();
 
 
-    const slotChoices = [];
+    actionCache[0].clear();
 
-    for (const c of slotOptions) {
+    actionCache[1].clear();
 
-      for (const bd of bandOptionsOf(c)) {
+    transCache.clear();
 
-        slotChoices.push({ code: c, band: bd });
+    /**
+     * 栏位结果分布与“是否启用档位”有关
+     * （同一个 bands 键在两种模式下含义不同），必须一并清空。
+     */
+    slotDistCache.clear();
 
-      }
-
-    }
+    tierOutcomeCache.clear();
 
 
+    startId =
+      internState(
+        startSlots,
+        startLock,
+        bandTierMode
+          ? startBands
+          : [0, 0, 0]
+      );
+
+
+    /**
+     * 逐个状态展开动作；新状态会追加到 states 末尾，
+     * 循环条件每次重新读取长度，直到闭包稳定。
+     *
+     * 目标状态的价值恒为 0，run 会直接跳过，不需要展开。
+     */
     for (
-      const a of slotChoices
+      let sid = 0;
+      sid < states.length;
+      sid++
     ) {
 
-      for (
-        const b of slotChoices
-      ) {
+      if (states[sid].goal) {
 
-        for (
-          const cc of slotChoices
-        ) {
-
-          const slots =
-            [a.code, b.code, cc.code];
-
-          const bands =
-            [a.band, b.band, cc.band];
-
-
-          if (
-            !validSlots(slots)
-          ) {
-            continue;
-          }
-
-
-          const occ =
-            occupiedMask(slots);
-
-
-          /**
-           * lock:
-           *
-           * bit0 = 栏位1
-           * bit1 = 栏位2
-           * bit2 = 栏位3
-           */
-          for (
-            let lock = 0;
-            lock < 8;
-            lock++
-          ) {
-
-            /**
-             * 空栏位不能锁。
-             */
-            if (
-              (lock & ~occ) !== 0
-            ) {
-              continue;
-            }
-
-
-            /**
-             * 最多锁2栏。
-             */
-            if (
-              popcount(lock) > 2
-            ) {
-              continue;
-            }
-
-
-            const id =
-              states.length;
-
-
-            states.push({
-
-              slots,
-
-              lock,
-
-              bands,
-
-              goal:
-                isGoalSlots(slots),
-
-            });
-
-
-            idByKey.set(
-              stateKey(
-                slots,
-                lock,
-                bands
-              ),
-              id
-            );
-
-          }
-
-        }
+        continue;
 
       }
+
+
+      getActions(sid, 'key');
 
     }
 
   }
 
 
-  buildStates();
-
-
   /**
-   * 国际服版状态空间过大时，关闭阶数档位重新枚举
-   * （未达标词条的阶数改为按条件分布平均）。
+   * 初始化状态空间。
+   *
+   * 国际服版档位模式下若闭包仍然超限，
+   * 则关闭档位（未达标阶数按条件分布平均）重算。
    */
-  if (bandTierMode && states.length > BAND_STATE_LIMIT) {
+  function initStateSpace() {
 
-    bandTierMode = false;
+    buildReachable();
 
-    buildStates();
+
+    if (
+      bandTierMode &&
+      states.length > BAND_STATE_LIMIT
+    ) {
+
+      bandTierMode = false;
+
+      buildReachable();
+
+    }
 
   }
 
@@ -1453,18 +1380,8 @@ function solve(currentStr, targetStr, options = {}) {
     }
 
 
-    const id =
-      idByKey.get(
-        stateKey(
-          slots,
-          lock,
-          bands
-        )
-      );
-
-
     if (
-      id === undefined
+      !validSlots(slots)
     ) {
 
       throw new Error(
@@ -1474,14 +1391,39 @@ function solve(currentStr, targetStr, options = {}) {
     }
 
 
-    return id;
+    return {
+      slots,
+      lock,
+      bands,
+    };
   }
 
 
-  const startId =
+  /**
+   * 初始状态（解析结果）。
+   *
+   * 状态空间由 buildReachable 按需发现，
+   * 所以这里不再直接映射成状态编号。
+   */
+  const startParsed =
     parseCurrent(
       currentStr
     );
+
+
+  const startSlots =
+    startParsed.slots;
+
+
+  const startLock =
+    startParsed.lock;
+
+
+  const startBands =
+    startParsed.bands;
+
+
+  let startId = -1;
 
 
   /* ==========================================================
@@ -2502,24 +2444,11 @@ function solve(currentStr, targetStr, options = {}) {
     ) {
 
       const id =
-        idByKey.get(
-          stateKey(
-            o.slots,
-            nextLock,
-            o.bands
-          )
+        internState(
+          o.slots,
+          nextLock,
+          o.bands
         );
-
-
-      if (
-        id === undefined
-      ) {
-
-        throw new Error(
-          '内部错误：转移到了未枚举状态'
-        );
-
-      }
 
 
       agg.set(
@@ -2610,12 +2539,10 @@ function solve(currentStr, targetStr, options = {}) {
 
     function keepStateId(mask) {
 
-      return idByKey.get(
-        stateKey(
-          st.slots,
-          mask,
-          st.bands
-        )
+      return internState(
+        st.slots,
+        mask,
+        st.bands
       );
 
     }
@@ -3690,6 +3617,13 @@ function solve(currentStr, targetStr, options = {}) {
    * 1. 全石头策略
    * 2. 允许秘钥策略
    * ========================================================== */
+
+
+  /**
+   * 发现可达状态空间
+   * （国际服版档位模式下若仍超限则退回关闭档位重算）。
+   */
+  initStateSpace();
 
 
   const stoneRun =
