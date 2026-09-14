@@ -14,6 +14,9 @@
       <el-button plain type="danger" @click="exitGame" :disabled="!started">退出关卡</el-button>
       <el-button plain :disabled="!started" @click="showExpectation = true">查看期望</el-button>
       <el-checkbox v-model="soundEnabled">启用音效</el-checkbox>
+      <el-tag size="small" :type="isGlobalRule ? 'warning' : 'info'" effect="plain">
+        {{ isGlobalRule ? '国际服版规则' : '国服版规则' }}
+      </el-tag>
     </div>
 
     <template v-if="started">
@@ -250,6 +253,9 @@
       </div>
       <div v-else-if="expectError" class="expect-error">期望计算失败：{{ expectError }}</div>
       <div v-else class="expect-loading">{{ expectProgress || '期望计算中，请稍候…' }}</div>
+      <p v-if="isGlobalRule" class="dialog-note expect-rule-note">
+        注：当前为国际服版规则（改造不会获得该栏原有词条与原数值），期望按该规则计算。
+      </p>
       <div v-if="won" class="again-area">
         <el-button color="#1fa2ff" @click="startSimulation">再来一局</el-button>
       </div>
@@ -262,6 +268,16 @@ import { ref, computed, onUnmounted, watch } from 'vue'
 import { CHAR_TIER_RANGES } from '../affix_tier_ranges.js'
 
 const emit = defineEmits(['read-aka'])
+
+const props = defineProps({
+  // 洗练规则版本：'cn' = 国服版（默认）；'global' = 国际服版
+  // 由父组件（AffixCalc）统一维护，三个 Tab 共用
+  ruleVersion: { type: String, default: 'cn' },
+})
+
+// 是否使用国际服版规则（仅影响随机模拟与期望计算的洗练判定）
+const isGlobalRule = computed(() => props.ruleVersion === 'global')
+
 
 /* ==================== 游戏常量 ==================== */
 
@@ -376,6 +392,27 @@ function randomTier() {
     if (r < acc) return t
   }
   return 15
+}
+
+// 国际服版：改造后该栏不会获得与改造前相同的阶数，
+// 因此在剩余 14 个阶数上按 TIER_P 归一化后重新抽取。
+function randomTierExcept(excludeTier) {
+  const ex = Number(excludeTier)
+  if (!Number.isInteger(ex) || ex < 1 || ex > 15) return randomTier()
+  const total = 1 - TIER_P[ex]
+  if (total <= 0) return randomTier()
+  const r = Math.random() * total
+  let acc = 0
+  for (let t = 1; t <= 15; t++) {
+    if (t === ex) continue
+    acc += TIER_P[t]
+    if (r < acc) return t
+  }
+  // 浮点误差兜底：取最后一个非排除阶数
+  for (let t = 15; t >= 1; t--) {
+    if (t !== ex) return t
+  }
+  return randomTier()
 }
 
 function randomEffect(exclude = []) {
@@ -693,7 +730,12 @@ function startWash(gi, type) {
     // 变更数值：只重新随机已有词条的阶数，词条效果不变
     for (let si = 0; si < 3; si++) {
       if (gear.locks[si]) continue
-      if (newSlots[si].effect !== 'wd') newSlots[si].tier = randomTier()
+      if (newSlots[si].effect !== 'wd') {
+        // 国际服版：不会获得与改造前相同的阶数
+        newSlots[si].tier = isGlobalRule.value
+          ? randomTierExcept(gear.slots[si].tier)
+          : randomTier()
+      }
     }
   } else {
     // 变更效果：重新随机效果与阶数（按栏位获得概率，效果不重复）
@@ -703,9 +745,27 @@ function startWash(gi, type) {
     }
     for (let si = 0; si < 3; si++) {
       if (gear.locks[si]) continue
+      // 先判定本栏是否获得词条（与规则版本无关）
       if (Math.random() < SLOT_GET[si]) {
-        const effect = randomEffect(keptEffects)
-        newSlots[si] = { effect, tier: emptyGear ? 11 : randomTier() }
+        const prev = gear.slots[si]
+        // 国际服版：本栏原本有词条时，本次不会重复获得该词条。
+        // 注意：其它未锁定栏位的旧词条不参与互斥（它们同样会被重抽），
+        // 只排除“锁定栏位词条 + 本次已分配给前面栏位的新词条 + 本栏原词条”。
+        const exclude = (isGlobalRule.value && prev.effect !== 'wd')
+          ? [...keptEffects, prev.effect]
+          : keptEffects
+        const effect = randomEffect(exclude)
+        let tier
+        if (emptyGear) {
+          // 空装备首次改造：本次获得的全部词条阶数固定为 11
+          tier = 11
+        } else if (isGlobalRule.value && prev.effect !== 'wd') {
+          // 国际服版：本栏原本有词条时，不会获得与该栏相同的阶数
+          tier = randomTierExcept(prev.tier)
+        } else {
+          tier = randomTier()
+        }
+        newSlots[si] = { effect, tier }
         keptEffects.push(effect)
       } else {
         newSlots[si] = { effect: 'wd', tier: 0 }
@@ -808,7 +868,8 @@ function computeExpectation(current, targetStr) {
       type: mode.value,
       current,
       target: targetStr,
-      options: undefined,
+      // 期望计算跟随规则版本开关（p 用默认 0.1、角色版用精确策略）
+      options: { ruleVersion: props.ruleVersion },
     })
   })
   return { id, promise }
@@ -1317,6 +1378,10 @@ onUnmounted(() => {
 
 .expect-error {
   color: #f56c6c;
+}
+
+.expect-rule-note {
+  margin-top: 8px;
 }
 
 .expect-loading {

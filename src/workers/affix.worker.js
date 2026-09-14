@@ -55,6 +55,8 @@ function ensureSolvers() {
 
 self.onmessage = (e) => {
   const { id, type, current, target, options } = e.data || {}
+  // 洗练规则版本：'cn' = 国服版（默认）；'global' = 国际服版
+  const ruleVersion = options?.ruleVersion === 'global' ? 'global' : 'cn'
 
   ensureSolvers()
     .then(({ solve, solveCharacter }) => {
@@ -64,6 +66,7 @@ self.onmessage = (e) => {
             epsilon: 1e-9,
             maxIterations: 10000,
             digits: 6,
+            ruleVersion,
             // 秘钥使用概率阈值 p（0~1，默认 0.1）
             p: typeof options?.p === 'number' ? options.p : 0.1,
           })
@@ -74,6 +77,7 @@ self.onmessage = (e) => {
             maxGlobalStates: options?.maxGlobalStates ?? 500000,
             maxTransitionsPerAction: options?.maxTransitionsPerAction ?? 500000,
             digits: 6,
+            ruleVersion,
             p: typeof options?.p === 'number' ? options.p : 0.1,
             // 是否启用“更精确策略计算”（改进分配候选对比，更慢）
             usePrecise: options?.usePrecise !== false,

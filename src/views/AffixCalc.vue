@@ -3,6 +3,15 @@
   <div class="content-wrapper">
     <h1>胜利女神装备洗练计算器</h1>
 
+    <div class="rule-switch-row">
+      <span class="rule-switch-label">洗练规则：</span>
+      <el-radio-group v-model="ruleVersion" size="small">
+        <el-radio-button value="cn">国服版</el-radio-button>
+        <el-radio-button value="global">国际服版</el-radio-button>
+      </el-radio-group>
+      <span class="rule-switch-hint">{{ ruleVersionHint }}</span>
+    </div>
+
     <div style="text-align: center; margin-bottom: 20px;">
       <el-button color="#1fa2ff" plain @click="$router.push('Home')">返回主页</el-button>
       <a href="https://www.bilibili.com/toy/AffixCalc/index.html" style="margin-left: 10px; margin-right: 10px;"><el-button color="#1fa2ff" plain>查看B站版</el-button></a>
@@ -456,7 +465,7 @@
 
         <!-- ==================== 洗词条模拟器 ==================== -->
         <el-tab-pane label="洗词条模拟器" name="simulator">
-          <AffixSimulator ref="simulatorRef" @read-aka="openAkaForSimulator" />
+          <AffixSimulator ref="simulatorRef" :rule-version="ruleVersion" @read-aka="openAkaForSimulator" />
         </el-tab-pane>
       </el-tabs>
 
@@ -548,7 +557,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as THREE from 'three'
 import NET from 'vanta/src/vanta.net'
@@ -640,6 +649,39 @@ const keyP = ref(0.1)
 
 // 角色版“更精确策略计算”：对比两种分配方案取更优（更慢）
 const usePrecise = ref(true)
+
+/* ---------- 洗练规则版本（国服版 / 国际服版）：三个 Tab 共用 ---------- */
+
+const RULE_VERSION_KEY = 'affix_rule_version'
+// 'cn' = 国服版（默认）；'global' = 国际服版
+const ruleVersion = ref('cn')
+
+const ruleVersionHint = computed(() => (
+  ruleVersion.value === 'global'
+    ? '国际服：改造不会获得该栏原有词条与原数值'
+    : '国服：改造可能获得与该栏相同的词条/数值'
+))
+
+function loadRuleVersion() {
+  try {
+    const raw = localStorage.getItem(RULE_VERSION_KEY)
+    if (raw === 'cn' || raw === 'global') ruleVersion.value = raw
+  } catch (e) {
+    // 读取失败时静默保持默认（国服版）
+  }
+}
+
+function saveRuleVersion() {
+  try {
+    localStorage.setItem(RULE_VERSION_KEY, String(ruleVersion.value))
+  } catch (e) {
+    // 静默失败：保持内存中的值
+  }
+}
+
+watch(ruleVersion, () => {
+  saveRuleVersion()
+})
 
 const computing = ref(false)
 const resultMode = ref('')
@@ -1205,7 +1247,7 @@ function requestCompute(payload) {
     type: payload.type,
     current: payload.current,
     target: payload.target,
-    options: { p: keyP.value, usePrecise: usePrecise.value },
+    options: { p: keyP.value, usePrecise: usePrecise.value, ruleVersion: ruleVersion.value },
   })
 }
 
@@ -1292,7 +1334,7 @@ function runCompare(type, current, target) {
       type,
       current,
       target,
-      options: { p: keyP.value, usePrecise: usePrecise.value },
+      options: { p: keyP.value, usePrecise: usePrecise.value, ruleVersion: ruleVersion.value },
     })
   })
 }
@@ -1576,6 +1618,8 @@ onMounted(() => {
     maxDistance: 21.0,
     spacing: 16.0,
   })
+  // 洗练规则版本（国服版 / 国际服版）：三个 Tab 共用，读取本地存储
+  loadRuleVersion()
 })
 
 onUnmounted(() => {
@@ -1609,6 +1653,33 @@ h1 {
   text-align: center;
   margin: 0 0 20px;
   padding-top: 20px;
+}
+
+/* 洗练规则版本切换（三个 Tab 共用） */
+.rule-switch-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 0 auto 14px;
+  padding: 8px 14px;
+  max-width: 1200px;
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid #e3ecf7;
+  border-radius: 10px;
+}
+
+.rule-switch-label {
+  color: #333;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.rule-switch-hint {
+  color: #999;
+  font-size: 12px;
 }
 
 .container {

@@ -442,6 +442,296 @@ function solve(currentStr, targetStr, options = {}) {
 
 
   /* ==========================================================
+   * 洗练规则版本
+   *
+   * 'cn'（默认，国服版）：
+   *   xg 可以重复获得本栏原词条；阶数可以重复抽到原阶数。
+   *
+   * 'global'（国际服版）：
+   *   ① xg 时本栏不会重复获得改造前的原词条
+   *      （先判定是否获得词条，再在“排除本栏原词条”的词条池里抽取）；
+   *   ② xg / sz 后本栏不会获得与改造前相同的阶数
+   *      （在剩余阶数上按 TIER_P 归一化后抽取）。
+   *
+   * 国服版路径与改动前完全一致：band 维度恒为 0，阶数结果只有
+   * “达标 / 未达标”两种，缓存键也与原来相同。
+   * ========================================================== */
+
+  const globalRules =
+    options.ruleVersion === 'global';
+
+
+  /**
+   * 国际服版：未达标目标词条的阶数“档位”。
+   *
+   * “不会获得原阶数”的归一化系数取决于原阶数：原阶数的 TIER_P 越大
+   * （即阶数越低），排除它以后重新抽到目标阶数的概率提升越明显。
+   *
+   * 低档 = 1~10 阶；高档 = 11 阶以上（仅 th>=12 时存在）。
+   * 是否把“低档 / 高档”作为状态的一部分由 bandTierMode 决定：
+   *   跟踪档位可以区分“1 阶洗目标 15 阶”与“11 阶洗目标 15 阶”，
+   *   但会让状态空间成倍增长；状态空间过大时退回“按条件分布平均”，
+   *   此时未达标词条不再区分档位（期望差异通常只有千分之一量级）。
+   */
+  const tierSetOfTarget =
+    targets.map(
+      t => {
+
+        const th =
+          t.th;
+
+        const badLow = [];
+        const badHigh = [];
+        const badAll = [];
+        const good = [];
+
+        for (
+          let x = 1;
+          x <= 15;
+          x++
+        ) {
+
+          if (x >= th) good.push(x);
+          else {
+
+            badAll.push(x);
+
+            if (x <= 10) badLow.push(x);
+            else badHigh.push(x);
+
+          }
+
+        }
+
+        return { badLow, badHigh, badAll, good };
+
+      }
+    );
+
+
+  /**
+   * 阶数集合的 TIER_P 总质量（用于按条件分布加权）。
+   */
+  const tierMassCache =
+    new Map();
+
+  function tierMass(
+    set
+  ) {
+
+    const key =
+      set.join('.');
+
+    const hit =
+      tierMassCache.get(key);
+
+    if (hit !== undefined) return hit;
+
+    let s = 0;
+
+    for (const x of set) s += TIER_P[x];
+
+    tierMassCache.set(key, s);
+
+    return s;
+
+  }
+
+
+  /**
+   * 某个目标词条栏位的“原阶数集合”。
+   *
+   * 返回值同时用作缓存键的一部分：
+   *   null        = 空栏（没有原阶数，不需要排除）
+   *   'marginal'  = 非目标词条（原阶数未知，按 TIER_P 边缘分布平均）
+   *   数组         = 目标词条（原阶数在该集合内等可能）
+   */
+  function oldTierSetAt(
+    slots,
+    bands,
+    pos
+  ) {
+
+    const c =
+      slots[pos];
+
+    if (c === 0) return null;
+
+    if (c === O10 || c === O12) return 'marginal';
+
+    const j =
+      targetOfCode(c);
+
+    const sets =
+      tierSetOfTarget[j];
+
+    if (isGoodCode(c)) return sets.good;
+
+    if (!bandTierMode) return sets.badAll;
+
+    return bands[pos] === 1
+      ? sets.badHigh
+      : sets.badLow;
+
+  }
+
+
+  /** 阶数集合的缓存键。 */
+  function tierSetKey(set) {
+
+    if (set === null) return 'none';
+    if (set === 'marginal') return 'marg';
+
+    return set.join('.');
+
+  }
+
+
+  /**
+   * 抽到目标 j 的一员时，阶数结果的分布（国际服版会排除原阶数）。
+   *
+   * 国服版直接返回原来的“达标 / 未达标”两种结果（band 恒为 0），
+   * 保证行为与改动前逐位一致。
+   */
+  const tierOutcomeCache =
+    new Map();
+
+  function tierOutcomes(
+    j,
+    oldSet
+  ) {
+
+    if (!globalRules) {
+
+      const q =
+        targets[j].q;
+
+      return [
+        { good: true, band: 0, p: q },
+        { good: false, band: 0, p: 1 - q },
+      ];
+
+    }
+
+    const key =
+      `${j}|${tierSetKey(oldSet)}`;
+
+    const hit =
+      tierOutcomeCache.get(key);
+
+    if (hit) return hit;
+
+    const sets =
+      tierSetOfTarget[j];
+
+    const out = [];
+
+    /**
+     * 把某个阶数集合的“新阶数概率”累加出来。
+     *
+     * 新阶数在该集合内取 x，概率 = 原阶数 o 上的平均：
+     *   P(x | o) = TIER_P[x] / (1 - TIER_P[o])   （x != o）
+     */
+    const push =
+      (good, band, set) => {
+
+        let p = 0;
+
+        for (const x of set) {
+
+          if (oldSet === null) {
+
+            p += TIER_P[x];
+
+          }
+
+          else if (oldSet === 'marginal') {
+
+            for (let o = 1; o <= 15; o++) {
+
+              if (o === x) continue;
+
+              p +=
+                TIER_P[o] *
+                TIER_P[x] /
+                (1 - TIER_P[o]);
+
+            }
+
+          }
+
+          else {
+
+            /**
+             * 原阶数在该集合内：按 TIER_P 在该集合上的条件分布平均
+             * （单档位集合内 TIER_P 相同，等价于集合内等可能）。
+             */
+            const norm =
+              tierMass(oldSet);
+
+            for (const o of oldSet) {
+
+              if (o === x) continue;
+
+              p +=
+                (TIER_P[o] / norm) *
+                TIER_P[x] /
+                (1 - TIER_P[o]);
+
+            }
+
+          }
+
+        }
+
+        if (p > 0) out.push({ good, band, p });
+
+      };
+
+    push(true, 0, sets.good);
+
+    if (bandTierMode) {
+
+      if (sets.badLow.length) push(false, 0, sets.badLow);
+
+      if (sets.badHigh.length) push(false, 1, sets.badHigh);
+
+    }
+
+    else if (sets.badAll.length) {
+
+      push(false, 0, sets.badAll);
+
+    }
+
+    tierOutcomeCache.set(key, out);
+
+    return out;
+
+  }
+
+
+  /**
+   * 空装备首次变更效果：本次获得的词条阶数固定为 11
+   * （国际服版下 11 阶还要落到正确的阶数档位）。
+   */
+  function blankTierOutcome(
+    j
+  ) {
+
+    const good =
+      targets[j].th <= 11;
+
+    return {
+      good,
+      band: (bandTierMode && !good) ? 1 : 0,
+      p: 1,
+    };
+
+  }
+
+
+  /* ==========================================================
    * 状态压缩编码
    *
    * 0 = wd
@@ -643,14 +933,18 @@ function solve(currentStr, targetStr, options = {}) {
 
   function stateKey(
     slots,
-    lock
+    lock,
+    bands
   ) {
 
     return (
       `${lock}|` +
       `${slots[0]},` +
       `${slots[1]},` +
-      `${slots[2]}`
+      `${slots[2]}|` +
+      `${bands[0]},` +
+      `${bands[1]},` +
+      `${bands[2]}`
     );
 
   }
@@ -763,101 +1057,187 @@ function solve(currentStr, targetStr, options = {}) {
   }
 
 
-  const states = [];
+  let states = [];
 
-  const idByKey =
+  let idByKey =
     new Map();
 
 
-  for (
-    const a of slotOptions
-  ) {
+  /**
+   * 是否把“未达标词条的阶数档位”并入状态。
+   *
+   * 仅国际服版需要；且状态空间过大时关闭（退回按条件分布平均），
+   * 以免多目标 + 高目标阶数时求解过慢。
+   * options.bandTier === false 可直接关闭（角色版分解求解会用它换取速度）。
+   */
+  let bandTierMode =
+    globalRules &&
+    options.bandTier !== false;
+
+
+  /**
+   * 每个压缩栏位可搭配的“阶数档位”。
+   *
+   * 国服版 / 关闭档位时恒为 0；国际服版下只有“未达标目标词条”且
+   * 该目标存在 11 阶以上的未达标阶数时才需要区分低档 / 高档。
+   */
+  function bandOptionsOf(c) {
+
+    if (!bandTierMode) return [0];
+
+    if (c === 0 || c === O10 || c === O12) return [0];
+
+    if (isGoodCode(c)) return [0];
+
+    const j =
+      targetOfCode(c);
+
+    return tierSetOfTarget[j].badHigh.length
+      ? [0, 1]
+      : [0];
+
+  }
+
+
+  /**
+   * 状态数上限：超过则关闭阶数档位（国际服版的近似退化）。
+   */
+  const BAND_STATE_LIMIT = 9000;
+
+
+  function buildStates() {
+
+    states = [];
+
+    idByKey = new Map();
+
+
+    const slotChoices = [];
+
+    for (const c of slotOptions) {
+
+      for (const bd of bandOptionsOf(c)) {
+
+        slotChoices.push({ code: c, band: bd });
+
+      }
+
+    }
+
 
     for (
-      const b of slotOptions
+      const a of slotChoices
     ) {
 
       for (
-        const c of slotOptions
+        const b of slotChoices
       ) {
 
-        const slots =
-          [a, b, c];
-
-
-        if (
-          !validSlots(slots)
-        ) {
-          continue;
-        }
-
-
-        const occ =
-          occupiedMask(slots);
-
-
-        /**
-         * lock:
-         *
-         * bit0 = 栏位1
-         * bit1 = 栏位2
-         * bit2 = 栏位3
-         */
         for (
-          let lock = 0;
-          lock < 8;
-          lock++
+          const cc of slotChoices
         ) {
 
-          /**
-           * 空栏位不能锁。
-           */
+          const slots =
+            [a.code, b.code, cc.code];
+
+          const bands =
+            [a.band, b.band, cc.band];
+
+
           if (
-            (lock & ~occ) !== 0
+            !validSlots(slots)
           ) {
             continue;
           }
 
 
+          const occ =
+            occupiedMask(slots);
+
+
           /**
-           * 最多锁2栏。
+           * lock:
+           *
+           * bit0 = 栏位1
+           * bit1 = 栏位2
+           * bit2 = 栏位3
            */
-          if (
-            popcount(lock) > 2
+          for (
+            let lock = 0;
+            lock < 8;
+            lock++
           ) {
-            continue;
-          }
+
+            /**
+             * 空栏位不能锁。
+             */
+            if (
+              (lock & ~occ) !== 0
+            ) {
+              continue;
+            }
 
 
-          const id =
-            states.length;
+            /**
+             * 最多锁2栏。
+             */
+            if (
+              popcount(lock) > 2
+            ) {
+              continue;
+            }
 
 
-          states.push({
-
-            slots,
-
-            lock,
-
-            goal:
-              isGoalSlots(slots),
-
-          });
+            const id =
+              states.length;
 
 
-          idByKey.set(
-            stateKey(
+            states.push({
+
               slots,
-              lock
-            ),
-            id
-          );
+
+              lock,
+
+              bands,
+
+              goal:
+                isGoalSlots(slots),
+
+            });
+
+
+            idByKey.set(
+              stateKey(
+                slots,
+                lock,
+                bands
+              ),
+              id
+            );
+
+          }
 
         }
 
       }
 
     }
+
+  }
+
+
+  buildStates();
+
+
+  /**
+   * 国际服版状态空间过大时，关闭阶数档位重新枚举
+   * （未达标词条的阶数改为按条件分布平均）。
+   */
+  if (bandTierMode && states.length > BAND_STATE_LIMIT) {
+
+    bandTierMode = false;
+
+    buildStates();
 
   }
 
@@ -895,6 +1275,8 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     const slots = [];
+
+    const bands = [];
 
     let lock = 0;
 
@@ -950,6 +1332,8 @@ function solve(currentStr, targetStr, options = {}) {
 
           slots.push(0);
 
+          bands.push(0);
+
 
           /**
            * 锁空栏位本身没有价值，
@@ -1004,14 +1388,20 @@ function solve(currentStr, targetStr, options = {}) {
             tj !== undefined
           ) {
 
+            const good =
+              tier >= targets[tj].th;
+
             slots.push(
+              codeTarget(tj, good)
+            );
 
-              codeTarget(
-                tj,
-                tier >=
-                  targets[tj].th
-              )
-
+            /**
+             * 国际服版：未达标且阶数 >= 11 时记入高档，供“不会获得原阶数”使用。
+             */
+            bands.push(
+              (bandTierMode && !good && tier >= 11)
+                ? 1
+                : 0
             );
 
           }
@@ -1030,6 +1420,8 @@ function solve(currentStr, targetStr, options = {}) {
                 : O12
 
             );
+
+            bands.push(0);
 
           }
 
@@ -1065,7 +1457,8 @@ function solve(currentStr, targetStr, options = {}) {
       idByKey.get(
         stateKey(
           slots,
-          lock
+          lock,
+          bands
         )
       );
 
@@ -1113,6 +1506,19 @@ function solve(currentStr, targetStr, options = {}) {
   }
 
 
+  function bandsSig(
+    bands
+  ) {
+
+    return (
+      `${bands[0]},` +
+      `${bands[1]},` +
+      `${bands[2]}`
+    );
+
+  }
+
+
   /**
    * 是否为空装备（三个栏位全空）。
    *
@@ -1142,6 +1548,7 @@ function solve(currentStr, targetStr, options = {}) {
 
   function getXgSlotDist(
     slots,
+    bands,
     protect
   ) {
 
@@ -1150,8 +1557,10 @@ function solve(currentStr, targetStr, options = {}) {
      * 没锁的原词条全部消失，
      * 所以缓存只需要记录被保护栏位。
      *
-     * 例外：空装备第一次变更效果必定获得 11 阶词条，
-     * 分布与普通“无保护栏位”状态不同，缓存键要带上标记。
+     * 例外：
+     * ① 空装备第一次变更效果必定获得 11 阶词条；
+     * ② 国际服版下每栏还会排除自己的原词条（xg 后不会获得相同词条），
+     *    分布与未锁定栏位的原内容有关，缓存键要带上完整状态。
      */
     const blank =
       isBlankSlots(slots);
@@ -1180,8 +1589,17 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     const key =
-      `xg|${protect}|${protSig}` +
-      (blank ? '|blank' : '');
+      globalRules
+
+        ? (
+            `xg|${protect}|${slotsSig(slots)}|${bandsSig(bands)}` +
+            (blank ? '|blank' : '')
+          )
+
+        : (
+            `xg|${protect}|${protSig}` +
+            (blank ? '|blank' : '')
+          );
 
 
     if (
@@ -1196,6 +1614,9 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     const out =
+      [0, 0, 0];
+
+    const outBands =
       [0, 0, 0];
 
 
@@ -1319,7 +1740,7 @@ function solve(currentStr, targetStr, options = {}) {
 
 
       const k =
-        slotsSig(out);
+        `${slotsSig(out)}|${outBands.join(',')}`;
 
 
       map.set(
@@ -1399,6 +1820,43 @@ function solve(currentStr, targetStr, options = {}) {
 
 
       /**
+       * 国际服版：本栏改造前的原词条在本次抽取中不可再获得。
+       *
+       * 注意只对本栏的抽取生效：本栏被重抽后原词条即被释放，
+       * 后面的栏位仍然可以抽到它（未锁定栏位的旧词条不参与互斥）。
+       */
+      let ownKind = 0;   // 0 无；1 十%组；2 十二%组；3 目标(十%)；4 目标(十二%)
+      let ownJ = -1;
+
+      if (globalRules) {
+
+        const c0 =
+          slots[pos];
+
+        if (c0 === O10) ownKind = 1;
+        else if (c0 === O12) ownKind = 2;
+        else if (isTargetCode(c0)) {
+
+          ownJ = targetOfCode(c0);
+
+          if (rem10[ownJ] > 0) ownKind = 3;
+          else if (rem12[ownJ] > 0) ownKind = 4;
+
+        }
+
+      }
+
+
+      const drawTotal =
+        total -
+        (
+          ownKind === 0
+            ? 0
+            : (ownKind === 1 || ownKind === 3 ? 0.10 : 0.12)
+        );
+
+
+      /**
        * 词条池已空（例如合并目标把大权重一次性抽走、
        * 或剩余目标都被保护/占用时）：
        *
@@ -1406,10 +1864,12 @@ function solve(currentStr, targetStr, options = {}) {
        * 概率必须完整保留，不能丢弃。
        */
       if (
-        total <= 0
+        drawTotal <= 0
       ) {
 
         out[pos] = 0;
+
+        outBands[pos] = 0;
 
 
         rec(
@@ -1433,6 +1893,8 @@ function solve(currentStr, targetStr, options = {}) {
 
         out[pos] = 0;
 
+        outBands[pos] = 0;
+
 
         rec(
           pos + 1,
@@ -1455,52 +1917,61 @@ function solve(currentStr, targetStr, options = {}) {
       ) {
 
         /**
-         * 本次抽到目标 j 的成员后“阶数达标”的概率。
+         * 本次抽到目标 j 的成员后的阶数结果分布。
          *
-         * 空装备第一次变更效果：本次获得的所有词条阶数都固定为 11
-         * （先决定各栏位是否获得词条、获得哪个词条，再把阶数全部设为 11），
-         * 因此达标与否完全由目标阶数决定
-         * （目标 ≤ 11 阶必定达标，≥ 12 阶必定不达标）。
+         * 国服版：达标 / 未达标两种（阶数不参与状态）。
+         * 国际服版：按“不会获得原阶数”归一化后的 (达标?, 阶数档位) 分布；
+         *   空装备第一次变更效果时，本次词条阶数固定为 11。
          */
-        const q =
+        const outcomes =
           blank
-            ? (
-                targets[j].th <= 11
-                  ? 1
-                  : 0
-              )
-            : targets[j].q;
+            ? [blankTierOutcome(j)]
+            : tierOutcomes(
+                j,
+                oldTierSetAt(slots, bands, pos)
+              );
+
+
+        /**
+         * 本栏原词条在本次抽取中不可再获得（国际服版）。
+         */
+        const avail10 =
+          rem10[j] -
+          (ownKind === 3 && ownJ === j ? 1 : 0);
+
+        const avail12 =
+          rem12[j] -
+          (ownKind === 4 && ownJ === j ? 1 : 0);
 
 
         /**
          * 抽到目标 j 的一个 10% 权重成员。
          */
         if (
-          rem10[j] > 0
+          avail10 > 0
         ) {
 
           const pe =
             acq *
-            rem10[j] *
+            avail10 *
             0.10 /
-            total;
+            drawTotal;
 
 
           rem10[j]--;
 
 
-          /**
-           * 阶数达标
-           */
-          if (
-            q > 0
-          ) {
+          for (const oc of outcomes) {
+
+            if (oc.p <= 0) continue;
 
             out[pos] =
               codeTarget(
                 j,
-                true
+                oc.good
               );
+
+            outBands[pos] = oc.band;
 
 
             rec(
@@ -1508,35 +1979,7 @@ function solve(currentStr, targetStr, options = {}) {
 
               prob *
                 pe *
-                q,
-
-              rr10,
-              rr12
-            );
-
-          }
-
-
-          /**
-           * 阶数不达标
-           */
-          if (
-            q < 1
-          ) {
-
-            out[pos] =
-              codeTarget(
-                j,
-                false
-              );
-
-
-            rec(
-              pos + 1,
-
-              prob *
-                pe *
-                (1 - q),
+                oc.p,
 
               rr10,
               rr12
@@ -1554,28 +1997,30 @@ function solve(currentStr, targetStr, options = {}) {
          * 抽到目标 j 的一个 12% 权重成员。
          */
         if (
-          rem12[j] > 0
+          avail12 > 0
         ) {
 
           const pe =
             acq *
-            rem12[j] *
+            avail12 *
             0.12 /
-            total;
+            drawTotal;
 
 
           rem12[j]--;
 
 
-          if (
-            q > 0
-          ) {
+          for (const oc of outcomes) {
+
+            if (oc.p <= 0) continue;
 
             out[pos] =
               codeTarget(
                 j,
-                true
+                oc.good
               );
+
+            outBands[pos] = oc.band;
 
 
             rec(
@@ -1583,32 +2028,7 @@ function solve(currentStr, targetStr, options = {}) {
 
               prob *
                 pe *
-                q,
-
-              rr10,
-              rr12
-            );
-
-          }
-
-
-          if (
-            q < 1
-          ) {
-
-            out[pos] =
-              codeTarget(
-                j,
-                false
-              );
-
-
-            rec(
-              pos + 1,
-
-              prob *
-                pe *
-                (1 - q),
+                oc.p,
 
               rr10,
               rr12
@@ -1628,18 +2048,27 @@ function solve(currentStr, targetStr, options = {}) {
        * 抽到10%组非目标词条
        * ------------------------------------------------------ */
 
+      const availR10 =
+        rr10 - (ownKind === 1 ? 1 : 0);
+
+      const availR12 =
+        rr12 - (ownKind === 2 ? 1 : 0);
+
+
       if (
-        rr10 > 0
+        availR10 > 0
       ) {
 
         const pe =
           acq *
-          (rr10 * 0.10) /
-          total;
+          (availR10 * 0.10) /
+          drawTotal;
 
 
         out[pos] =
           O10;
+
+        outBands[pos] = 0;
 
 
         rec(
@@ -1657,17 +2086,19 @@ function solve(currentStr, targetStr, options = {}) {
        * ------------------------------------------------------ */
 
       if (
-        rr12 > 0
+        availR12 > 0
       ) {
 
         const pe =
           acq *
-          (rr12 * 0.12) /
-          total;
+          (availR12 * 0.12) /
+          drawTotal;
 
 
         out[pos] =
           O12;
+
+        outBands[pos] = 0;
 
 
         rec(
@@ -1697,12 +2128,27 @@ function solve(currentStr, targetStr, options = {}) {
       const [k, p] of map
     ) {
 
+      const parts =
+        k.split('|');
+
+
+      const sl =
+        parts[0]
+          .split(',')
+          .map(Number);
+
+
+      const bd =
+        parts[1]
+          .split(',')
+          .map(Number);
+
+
       dist.push({
 
-        slots:
-          k
-            .split(',')
-            .map(Number),
+        slots: sl,
+
+        bands: bd,
 
         p,
 
@@ -1728,11 +2174,12 @@ function solve(currentStr, targetStr, options = {}) {
 
   function getSzSlotDist(
     slots,
+    bands,
     protect
   ) {
 
     const key =
-      `sz|${protect}|${slotsSig(slots)}`;
+      `sz|${protect}|${slotsSig(slots)}|${bandsSig(bands)}`;
 
 
     if (
@@ -1749,6 +2196,9 @@ function solve(currentStr, targetStr, options = {}) {
     const out =
       slots.slice();
 
+    const outBands =
+      bands.slice();
+
 
     const map =
       new Map();
@@ -1757,7 +2207,7 @@ function solve(currentStr, targetStr, options = {}) {
     function add(prob) {
 
       const k =
-        slotsSig(out);
+        `${slotsSig(out)}|${outBands.join(',')}`;
 
 
       map.set(
@@ -1813,49 +2263,35 @@ function solve(currentStr, targetStr, options = {}) {
         targetOfCode(c);
 
 
-      const q =
-        targets[j].q;
-
-
       /**
-       * 达标
+       * 变更数值：只重抽阶数。
+       *
+       * 国服版：达标 / 未达标两种结果。
+       * 国际服版：不会获得原阶数，按 (达标?, 阶数档位) 分布。
        */
-      if (
-        q > 0
-      ) {
-
-        out[pos] =
-          codeTarget(
-            j,
-            true
-          );
-
-
-        rec(
-          pos + 1,
-          prob * q
+      const outcomes =
+        tierOutcomes(
+          j,
+          oldTierSetAt(slots, bands, pos)
         );
 
-      }
 
+      for (const oc of outcomes) {
 
-      /**
-       * 不达标
-       */
-      if (
-        q < 1
-      ) {
+        if (oc.p <= 0) continue;
 
         out[pos] =
           codeTarget(
             j,
-            false
+            oc.good
           );
+
+        outBands[pos] = oc.band;
 
 
         rec(
           pos + 1,
-          prob * (1 - q)
+          prob * oc.p
         );
 
       }
@@ -1866,6 +2302,8 @@ function solve(currentStr, targetStr, options = {}) {
        * 供递归其他分支使用。
        */
       out[pos] = c;
+
+      outBands[pos] = bands[pos];
 
     }
 
@@ -1883,10 +2321,19 @@ function solve(currentStr, targetStr, options = {}) {
       const [k, p] of map
     ) {
 
+      const parts =
+        k.split('|');
+
+
       dist.push({
 
         slots:
-          k
+          parts[0]
+            .split(',')
+            .map(Number),
+
+        bands:
+          parts[1]
             .split(',')
             .map(Number),
 
@@ -1974,30 +2421,44 @@ function solve(currentStr, targetStr, options = {}) {
       wash === 'xg'
 
         ? (
-            `xg|${protect}|` +
-
-            [0, 1, 2]
-              .filter(
-                i =>
-                  protect &
-                  (1 << i)
-              )
-              .map(
-                i =>
-                  `${i}:${st.slots[i]}`
-              )
-              .join(';') +
-
             /**
-             * 空装备第一次变更效果是特殊分布（必定 11 阶），
-             * 不能与其它“无保护栏位”状态共用缓存。
+             * 国际服版：xg 分布与本栏原词条/原阶数有关，必须按完整状态缓存；
+             * 国服版分布只与“被保护的栏位”有关（原词条会全部消失）。
              */
-            (isBlankSlots(st.slots) ? '|blank' : '')
+            globalRules
+
+              ? (
+                  `xg|${protect}|` +
+                  `${slotsSig(st.slots)}|${bandsSig(st.bands)}` +
+                  (isBlankSlots(st.slots) ? '|blank' : '')
+                )
+
+              : (
+                  `xg|${protect}|` +
+
+                  [0, 1, 2]
+                    .filter(
+                      i =>
+                        protect &
+                        (1 << i)
+                    )
+                    .map(
+                      i =>
+                        `${i}:${st.slots[i]}`
+                    )
+                    .join(';') +
+
+                  /**
+                   * 空装备第一次变更效果是特殊分布（必定 11 阶），
+                   * 不能与其它“无保护栏位”状态共用缓存。
+                   */
+                  (isBlankSlots(st.slots) ? '|blank' : '')
+                )
           )
 
         : (
             `sz|${protect}|` +
-            `${slotsSig(st.slots)}`
+            `${slotsSig(st.slots)}|${bandsSig(st.bands)}`
           );
 
 
@@ -2021,11 +2482,13 @@ function solve(currentStr, targetStr, options = {}) {
 
         ? getXgSlotDist(
             st.slots,
+            st.bands,
             protect
           )
 
         : getSzSlotDist(
             st.slots,
+            st.bands,
             protect
           );
 
@@ -2042,7 +2505,8 @@ function solve(currentStr, targetStr, options = {}) {
         idByKey.get(
           stateKey(
             o.slots,
-            nextLock
+            nextLock,
+            o.bands
           )
         );
 
@@ -2135,6 +2599,26 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     const arr = [];
+
+    /**
+     * “效果保留”后的状态：
+     * 各栏内容不变，只把锁状态换成“本轮结束时的锁”。
+     * 空装备首次改造（必定 11 阶）强制应用，不提供保留。
+     */
+    const blankForceApply =
+      isBlankSlots(st.slots);
+
+    function keepStateId(mask) {
+
+      return idByKey.get(
+        stateKey(
+          st.slots,
+          mask,
+          st.bands
+        )
+      );
+
+    }
 
 
     /**
@@ -2298,6 +2782,17 @@ function solve(currentStr, targetStr, options = {}) {
              */
             useKey: false,
 
+            /**
+             * “效果保留”相关：保留后的状态 + 是否强制应用。
+             * 石头模式下本轮结束时的永久锁 = protect。
+             */
+            keepId:
+              keepStateId(protect),
+
+            forceApply:
+              wash === 'xg' &&
+              blankForceApply,
+
           });
 
         }
@@ -2349,6 +2844,16 @@ function solve(currentStr, targetStr, options = {}) {
               trans: transKey,
 
               useKey: true,
+
+              /**
+               * 秘钥模式下本轮结束时的永久锁 = 原有并继续保留的锁。
+               */
+              keepId:
+                keepStateId(keep),
+
+              forceApply:
+                wash === 'xg' &&
+                blankForceApply,
 
             });
 
@@ -2628,6 +3133,22 @@ function solve(currentStr, targetStr, options = {}) {
 
 
           /**
+           * “效果保留”：洗练结果不如当前时，玩家可以选择保留原词条
+           * （只重置本轮结果，秘钥锁仍会解除；空装备首次改造强制应用）。
+           *
+           * keepId = 保留后的状态 =（当前各栏内容, 本轮结束时的锁, 阶数档位）。
+           * 因此每个结果的实际价值 = min(V(keepId), V(结果))；
+           * keepId === sid 时该分支就是自环，仍可用解析式提出。
+           */
+          const keepId =
+            a.keepId;
+
+          const keepAllowed =
+            !a.forceApply &&
+            keepId !== undefined;
+
+
+          /**
            * 累加未来价值。
            */
           for (
@@ -2635,10 +3156,67 @@ function solve(currentStr, targetStr, options = {}) {
             a.trans
           ) {
 
+            const kS =
+              keepAllowed
+                ? vs[keepId]
+                : Infinity;
+
+            const kK =
+              (keepAllowed && lex)
+                ? vk[keepId]
+                : 0;
+
+
+            /**
+             * 结果不比“保留”更好 → 玩家保留。
+             */
+            const keepThis =
+              keepAllowed &&
+              !better(
+                vs[tr.id],
+                lex ? vk[tr.id] : 0,
+                kS,
+                kK,
+                lex
+              );
+
+
+            if (
+              keepThis
+            ) {
+
+              if (
+                keepId === sid
+              ) {
+
+                pSelf +=
+                  tr.p;
+
+              }
+
+              else {
+
+                nS +=
+                  tr.p *
+                  kS;
+
+
+                if (lex) {
+
+                  nK +=
+                    tr.p *
+                    kK;
+
+                }
+
+              }
+
+            }
+
             /**
              * 自环单独处理。
              */
-            if (
+            else if (
               tr.id === sid
             ) {
 
@@ -2930,12 +3508,74 @@ function solve(currentStr, targetStr, options = {}) {
           a.key;
 
 
+        /**
+         * 与价值迭代相同的“效果保留”处理：
+         * 结果不比保留更好时，玩家保留（keepId === sid 时归入自环）。
+         */
+        const keepId =
+          a.keepId;
+
+        const keepAllowed =
+          !a.forceApply &&
+          keepId !== undefined;
+
+
         for (
           const tr of
           a.trans
         ) {
 
-          if (
+          const kS =
+            keepAllowed
+              ? vs[keepId]
+              : Infinity;
+
+          const kK =
+            (keepAllowed && lex)
+              ? vk[keepId]
+              : 0;
+
+
+          const keepThis =
+            keepAllowed &&
+            !better(
+              vs[tr.id],
+              lex ? vk[tr.id] : 0,
+              kS,
+              kK,
+              lex
+            );
+
+
+          if (keepThis) {
+
+            if (keepId === sid) {
+
+              pSelf +=
+                tr.p;
+
+            }
+
+            else {
+
+              nS +=
+                tr.p *
+                kS;
+
+
+              if (lex) {
+
+                nK +=
+                  tr.p *
+                  kK;
+
+              }
+
+            }
+
+          }
+
+          else if (
             tr.id === sid
           ) {
 
