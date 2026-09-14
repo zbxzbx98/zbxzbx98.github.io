@@ -202,11 +202,11 @@
 
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
-              <div class="time-row">
+              <div class="time-row" v-if="ruleVersion === 'cn'">
                 <span class="time-server">国服（3.3877 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
-              <div class="time-row">
+              <div class="time-row" v-if="ruleVersion === 'global'">
                 <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
@@ -450,11 +450,11 @@
 
             <div class="time-section" v-if="expectedDays">
               <h4>期望攒资源时间（按每日产出）</h4>
-              <div class="time-row">
+              <div class="time-row" v-if="ruleVersion === 'cn'">
                 <span class="time-server">国服（3.3877 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
-              <div class="time-row">
+              <div class="time-row" v-if="ruleVersion === 'global'">
                 <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
