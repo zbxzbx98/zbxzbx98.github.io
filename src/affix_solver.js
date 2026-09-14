@@ -1113,6 +1113,28 @@ function solve(currentStr, targetStr, options = {}) {
   }
 
 
+  /**
+   * 是否为空装备（三个栏位全空）。
+   *
+   * 空装备只可能是初始状态：栏位1获得词条的概率为 100%，
+   * 一旦洗练过就不可能再回到全空状态。
+   *
+   * 空装备首次“变更效果”时，本次获得的所有词条阶数都固定为 11
+   * （与 AffixSimulator 的 startWash 一致）。
+   */
+  function isBlankSlots(
+    slots
+  ) {
+
+    return (
+      slots[0] === 0 &&
+      slots[1] === 0 &&
+      slots[2] === 0
+    );
+
+  }
+
+
   /* ==========================================================
    * 变更效果 xg
    * ========================================================== */
@@ -1127,7 +1149,14 @@ function solve(currentStr, targetStr, options = {}) {
      * xg 时，
      * 没锁的原词条全部消失，
      * 所以缓存只需要记录被保护栏位。
+     *
+     * 例外：空装备第一次变更效果必定获得 11 阶词条，
+     * 分布与普通“无保护栏位”状态不同，缓存键要带上标记。
      */
+    const blank =
+      isBlankSlots(slots);
+
+
     let protSig = '';
 
 
@@ -1151,7 +1180,8 @@ function solve(currentStr, targetStr, options = {}) {
 
 
     const key =
-      `xg|${protect}|${protSig}`;
+      `xg|${protect}|${protSig}` +
+      (blank ? '|blank' : '');
 
 
     if (
@@ -1424,8 +1454,22 @@ function solve(currentStr, targetStr, options = {}) {
         j++
       ) {
 
+        /**
+         * 本次抽到目标 j 的成员后“阶数达标”的概率。
+         *
+         * 空装备第一次变更效果：本次获得的所有词条阶数都固定为 11
+         * （先决定各栏位是否获得词条、获得哪个词条，再把阶数全部设为 11），
+         * 因此达标与否完全由目标阶数决定
+         * （目标 ≤ 11 阶必定达标，≥ 12 阶必定不达标）。
+         */
         const q =
-          targets[j].q;
+          blank
+            ? (
+                targets[j].th <= 11
+                  ? 1
+                  : 0
+              )
+            : targets[j].q;
 
 
         /**
@@ -1942,7 +1986,13 @@ function solve(currentStr, targetStr, options = {}) {
                 i =>
                   `${i}:${st.slots[i]}`
               )
-              .join(';')
+              .join(';') +
+
+            /**
+             * 空装备第一次变更效果是特殊分布（必定 11 阶），
+             * 不能与其它“无保护栏位”状态共用缓存。
+             */
+            (isBlankSlots(st.slots) ? '|blank' : '')
           )
 
         : (
