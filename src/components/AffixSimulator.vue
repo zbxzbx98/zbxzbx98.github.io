@@ -46,29 +46,39 @@
               {{ gear.locks[si] === 'stone' ? '石头锁' : '秘钥锁' }}
             </span>
             <div class="slot-actions">
-              <el-button size="small" :disabled="!canLock(gear, si, 'stone')" @click="lockSlot(gi, si, 'stone')">
-                石头锁 {{ LOCK_STONE[lockCount(gear)] }}石
-              </el-button>
-              <el-button size="small" :disabled="!canLock(gear, si, 'key')" @click="lockSlot(gi, si, 'key')">
-                秘钥锁 {{ LOCK_KEY[lockCount(gear)] }}钥
-              </el-button>
+              <el-checkbox
+                :model-value="wantOf(gear, si) === 'stone'"
+                :disabled="!canCheckLock(gear, si, 'stone')"
+                @change="v => setLockWant(gi, si, 'stone', v)"
+              >
+                石头锁<template v-if="lockCost(gear, si, 'stone') !== null">（{{ lockCost(gear, si, 'stone') }} 石）</template>
+              </el-checkbox>
+              <el-checkbox
+                :model-value="wantOf(gear, si) === 'key'"
+                :disabled="!canCheckLock(gear, si, 'key')"
+                @change="v => setLockWant(gi, si, 'key', v)"
+              >
+                秘钥锁<template v-if="lockCost(gear, si, 'key') !== null">（{{ lockCost(gear, si, 'key') }} 钥）</template>
+              </el-checkbox>
               <el-button size="small" :disabled="gear.locks[si] !== 'stone'" @click="unlockSlot(gi, si)">解锁</el-button>
             </div>
           </div>
           <div class="wash-area">
             <el-button color="#1fa2ff" :disabled="won" @click="startWash(gi, 'xg')">
-              变更效果（{{ WASH_STONE[lockCount(gear)] }} 石头）
+              变更效果（{{ washCost(gear) }} 石头）
             </el-button>
             <el-button plain :disabled="won || !canWashSz(gear)" @click="startWash(gi, 'sz')">
-              变更数值（{{ WASH_STONE[lockCount(gear)] }} 石头）
+              变更数值（{{ washCost(gear) }} 石头）
             </el-button>
             <span class="wash-hint">变更效果：重新随机未锁定栏位的词条效果与阶数；变更数值：仅重新随机阶数</span>
+            <span v-if="plannedLockText(gear)" class="wash-hint lock-plan-hint">{{ plannedLockText(gear) }}</span>
           </div>
         </div>
       </div>
 
       <div class="panel goal-note">
         <p>提示：石头锁为永久锁，可随时免费解锁；秘钥锁为一次性锁，本次洗练后自动解除（即使选择保留之前的词条）。目标达成即通关。</p>
+        <p>勾选「石头锁 / 秘钥锁」不会立刻消耗资源，点击「变更效果 / 变更数值」时才扣费并上锁（石头锁优先，然后秘钥锁）。秘钥锁的勾选在洗练后保留，下次变更会再次消耗秘钥。</p>
       </div>
     </template>
 
@@ -186,8 +196,14 @@
       <template v-if="pendingWash">
         <p class="dialog-note">
           本次{{ pendingWash.type === 'xg' ? '变更效果' : '变更数值' }}消耗 <b>{{ pendingWash.cost }}</b> 石头
+          <template v-if="pendingWash.lockStone">
+            ，新上锁消耗 <b>{{ pendingWash.lockStone }}</b> 石头
+          </template>
+          <template v-if="pendingWash.lockKey">
+            ，新上锁消耗 <b>{{ pendingWash.lockKey }}</b> 秘钥
+          </template>
           <template v-if="pendingWash.keyLocks.length">
-            ；装备上的秘钥锁（第{{ pendingWash.keyLocks.map(i => i + 1).join('、') }}栏）已在本轮洗练后解除
+            ；装备上的秘钥锁（第{{ pendingWash.keyLocks.map(i => i + 1).join('、') }}栏）已在本轮洗练后解除（勾选保留，下次变更会再次消耗秘钥）
           </template>
         </p>
         <div class="wash-blocks">
@@ -227,7 +243,13 @@
           <template v-else>
             <el-button class="btn-keep" @click="resolveWash(false)">效果保留</el-button>
             <el-button class="btn-apply" @click="resolveWash(true)">效果变更</el-button>
-            <p class="dialog-note wash-note">选择「效果保留」会放弃本次结果；秘钥锁同样不会恢复。</p>
+            <div class="wash-again-row">
+              <el-button class="btn-again" @click="keepAndWashAgain()">保留并再次变更</el-button>
+            </div>
+            <p class="dialog-note wash-note">
+              选择「效果保留」会放弃本次结果；秘钥锁不会恢复（勾选保留，下次变更会再次消耗秘钥）。
+              「保留并再次变更」＝保留本次结果，并立刻按相同设置再洗一次。
+            </p>
           </template>
         </div>
       </template>
@@ -343,7 +365,7 @@ const blankSlot = () => ({ effect: 'wd', tier: 0 })
 // 目标：effects 为多选词条代号数组（同一行多选合并为同一目标）
 // 单装备默认 13 阶；角色目标默认 44 阶（13 阶对角色来说太低）
 const blankTarget = (tier = 13) => ({ effects: [], tier })
-const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()], locks: {} })
+const blankGear = () => ({ slots: [blankSlot(), blankSlot(), blankSlot()], locks: {}, want: {} })
 
 const effectOptions = [
   { code: 'wd', name: '空词条' },
@@ -471,7 +493,7 @@ function generateGear() {
       slots.push({ effect: 'wd', tier: 0 })
     }
   }
-  return { slots, locks: {} }
+  return { slots, locks: {}, want: {} }
 }
 
 function generateTargets(maxCount, maxTier) {
@@ -606,6 +628,7 @@ function cloneCustomGear(gear) {
   return {
     slots: gear.slots.map(s => ({ ...s })),
     locks: { ...gear.locks },
+    want: {},
   }
 }
 
@@ -681,27 +704,98 @@ function lockCount(gear) {
   return Object.keys(gear.locks).length
 }
 
-function canLock(gear, si, type) {
+/**
+ * 勾选状态只有“意愿”，点击变更（变更效果/变更数值）时才真正扣费上锁。
+ *
+ * 与 gear.locks 分开存放：
+ *   - 石头锁买入后进 gear.locks（永久锁），对应勾选被清除；
+ *   - 秘钥锁是一次性的，洗练后 gear.locks 里的临时锁解除，
+ *     但勾选保留，下次变更会再次消耗秘钥。
+ */
+function wantOf(gear, si) {
+  return gear.want ? gear.want[si] : undefined
+}
+
+function canCheckLock(gear, si, type) {
   if (won.value) return false
+  // 空栏位没有词条，不能上锁
   if (gear.slots[si].effect === 'wd') return false
+  // 已被石头锁定：只能点「解锁」，不能勾选
   if (gear.locks[si]) return false
-  return lockCount(gear) < 2
+  // 已勾选（任一类型）：允许取消，或改成另一种锁
+  if (wantOf(gear, si)) return true
+  // 每件装备最多同时锁 2 栏（含已勾选的）
+  const plan = lockPlan(gear)
+  return lockCount(gear) + plan.stone.length + plan.key.length < 2
+}
+
+function setLockWant(gi, si, type, checked) {
+  const gear = gears.value[gi]
+  if (!gear.want) gear.want = {}
+  if (checked) {
+    if (!canCheckLock(gear, si, type)) return
+    // 石头锁 / 秘钥锁互斥：直接覆盖
+    gear.want[si] = type
+  } else if (gear.want[si] === type) {
+    delete gear.want[si]
+  }
+}
+
+/**
+ * 本次变更的上锁计划（只用于预览与计价，不消耗资源）。
+ *
+ * 顺序与洗练时一致：已有的永久石头锁 → 勾选的石头锁 → 勾选的秘钥锁，
+ * 每把锁的价格按“上锁前已有几把锁”取 LOCK_STONE / LOCK_KEY。
+ * extra 用于预览“把某栏也勾上”时的价格。
+ */
+function lockPlan(gear, extra = null) {
+  const wantAt = si => (extra && extra.si === si ? extra.type : wantOf(gear, si))
+  const stone = []
+  const key = []
+  let n = lockCount(gear)
+  for (let si = 0; si < 3; si++) {
+    if (gear.locks[si] || gear.slots[si].effect === 'wd') continue
+    if (wantAt(si) === 'stone') {
+      stone.push({ si, index: n })
+      n++
+    }
+  }
+  for (let si = 0; si < 3; si++) {
+    if (gear.locks[si] || gear.slots[si].effect === 'wd') continue
+    if (wantAt(si) === 'key') {
+      key.push({ si, index: n })
+      n++
+    }
+  }
+  return { stone, key, finalCount: n }
+}
+
+// 变更按钮上的石头数：按“本次将要锁定的栏数”计价
+function washCost(gear) {
+  return WASH_STONE[Math.min(lockPlan(gear).finalCount, WASH_STONE.length - 1)]
+}
+
+// 勾选框上的价格：把它当作已勾选来算，与洗练时的扣费顺序一致
+// （若本栏勾的是另一种锁，这里算的就是“改成这种锁”的价格；不可勾选时不显示）
+function lockCost(gear, si, type) {
+  if (!canCheckLock(gear, si, type)) return null
+  const plan = lockPlan(gear, { si, type })
+  const item = (type === 'stone' ? plan.stone : plan.key).find(p => p.si === si)
+  if (!item || item.index >= LOCK_STONE.length) return null
+  return type === 'stone' ? LOCK_STONE[item.index] : LOCK_KEY[item.index]
+}
+
+// 本次变更前会先上哪些锁（提示用）
+function plannedLockText(gear) {
+  const plan = lockPlan(gear)
+  const parts = []
+  for (const p of plan.stone) parts.push(`栏位${p.si + 1} 石头锁（${LOCK_STONE[p.index]} 石）`)
+  for (const p of plan.key) parts.push(`栏位${p.si + 1} 秘钥锁（${LOCK_KEY[p.index]} 钥）`)
+  return parts.length ? '本次变更将先上锁：' + parts.join('、') : ''
 }
 
 function canWashSz(gear) {
-  return gear.slots.some((s, si) => !gear.locks[si] && s.effect !== 'wd')
-}
-
-function lockSlot(gi, si, type) {
-  const gear = gears.value[gi]
-  if (!canLock(gear, si, type)) return
-  if (type === 'stone') {
-    stonesUsed.value += LOCK_STONE[lockCount(gear)]
-    gear.locks[si] = 'stone'
-  } else {
-    keysUsed.value += LOCK_KEY[lockCount(gear)]
-    gear.locks[si] = 'key'
-  }
+  return gear.slots.some((s, si) => !gear.locks[si] && !wantOf(gear, si) && s.effect !== 'wd')
 }
 
 function unlockSlot(gi, si) {
@@ -728,9 +822,28 @@ function playWashSound() {
 }
 
 function startWash(gi, type) {
+  if (won.value) return
   playWashSound()
   const gear = gears.value[gi]
-  const cost = WASH_STONE[lockCount(gear)]
+
+  // 勾选的锁在这一刻才真正扣费上锁：石头锁优先，然后才是秘钥锁
+  const plan = lockPlan(gear)
+  let lockStone = 0
+  let lockKey = 0
+  for (const p of plan.stone) {
+    lockStone += LOCK_STONE[p.index]
+    stonesUsed.value += LOCK_STONE[p.index]
+    gear.locks[p.si] = 'stone'
+    delete gear.want[p.si]
+  }
+  for (const p of plan.key) {
+    lockKey += LOCK_KEY[p.index]
+    keysUsed.value += LOCK_KEY[p.index]
+    gear.locks[p.si] = 'key'
+    // 秘钥锁勾选保留：洗练后勾选不变，下次变更会再次消耗秘钥
+  }
+
+  const cost = WASH_STONE[Math.min(plan.finalCount, WASH_STONE.length - 1)]
   stonesUsed.value += cost
 
   // 空装备（三个栏位均为空）：首次改造只能应用，且固定获得 11 阶词条
@@ -797,10 +910,26 @@ function startWash(gi, type) {
     type,
     rows,
     cost,
+    lockStone,
+    lockKey,
     forceApply: emptyGear,
     keyLocks: Object.keys(gear.locks).filter(si => gear.locks[si] === 'key').map(Number),
   }
   dialogVisible.value = true
+}
+
+/**
+ * 「保留并再次变更」：
+ * 先按「效果保留」结算本次结果（不改词条、解除一次性秘钥锁、勾选保留），
+ * 再立刻用同样的设置重新洗一次（石头 / 秘钥照常消耗）。
+ */
+function keepAndWashAgain() {
+  const w = pendingWash.value
+  if (!w) return
+  const gearIndex = w.gearIndex
+  const type = w.type
+  resolveWash(false)
+  startWash(gearIndex, type)
 }
 
 function resolveWash(apply) {
@@ -979,7 +1108,7 @@ function exitGame() {
 function applyAkaCharacter(gears) {
   exitGame()
   mode.value = 'character'
-  customCharGears.value = gears.map(g => ({ slots: g.slots.map(s => ({ ...s })), locks: {} }))
+  customCharGears.value = gears.map(g => ({ slots: g.slots.map(s => ({ ...s })), locks: {}, want: {} }))
   customTargets.value = [blankTarget(44)]
   simMode.value = 'custom'
   customError.value = ''
@@ -988,7 +1117,7 @@ function applyAkaCharacter(gears) {
 function applyAkaGear(gear, slotNo) {
   exitGame()
   mode.value = 'single'
-  customSingleGear.value = { slots: gear.slots.map(s => ({ ...s })), locks: {} }
+  customSingleGear.value = { slots: gear.slots.map(s => ({ ...s })), locks: {}, want: {} }
   customTargets.value = [blankTarget(13)]
   simMode.value = 'custom'
   customError.value = ''
@@ -1226,6 +1355,30 @@ onUnmounted(() => {
 .wash-hint {
   color: #999;
   font-size: 12px;
+}
+
+.lock-plan-hint {
+  color: #e6a23c;
+  width: 100%;
+}
+
+.wash-again-row {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.btn-again {
+  background: #fff;
+  border-color: #e6a23c;
+  color: #e6a23c;
+}
+
+.btn-again:hover,
+.btn-again:focus {
+  background: #fdf3e5;
+  border-color: #e6a23c;
+  color: #e6a23c;
 }
 
 .goal-note p {
