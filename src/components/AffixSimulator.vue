@@ -254,7 +254,7 @@
       <div v-else-if="expectError" class="expect-error">期望计算失败：{{ expectError }}</div>
       <div v-else class="expect-loading">{{ expectProgress || '期望计算中，请稍候…' }}</div>
       <p v-if="isGlobalRule" class="dialog-note expect-rule-note">
-        注：当前为国际服版规则（改造不会获得该栏原有词条与原数值），期望按该规则计算。
+        注：当前为国际服版规则（改造结果与该栏改造前完全相同时，会重抽一次数值且不再抽到原数值），期望按该规则计算。
       </p>
       <div v-if="won" class="again-area">
         <el-button color="#1fa2ff" @click="startSimulation">再来一局</el-button>
@@ -394,8 +394,8 @@ function randomTier() {
   return 15
 }
 
-// 国际服版：改造后该栏不会获得与改造前相同的阶数，
-// 因此在剩余 14 个阶数上按 TIER_P 归一化后重新抽取。
+// 国际服版：改造结果与原结果“完全相同”时会重抽一次该栏数值，
+// 且这次不会再抽到原数值；因此在剩余 14 个阶数上按 TIER_P 归一化后抽取。
 function randomTierExcept(excludeTier) {
   const ex = Number(excludeTier)
   if (!Number.isInteger(ex) || ex < 1 || ex > 15) return randomTier()
@@ -413,6 +413,18 @@ function randomTierExcept(excludeTier) {
     if (t !== ex) return t
   }
   return randomTier()
+}
+
+// 国际服版新规则：只有“效果与数值都与改造前完全相同”时，
+// 才会重抽一次该栏数值（且保证不会再抽到原数值）。
+// 变更数值时效果必然不变，所以等价于“抽到原数值就重抽”。
+function randomTierAvoidSame(oldTier) {
+  const old = Number(oldTier)
+  const t = randomTier()
+  if (Number.isInteger(old) && old >= 1 && old <= 15 && t === old) {
+    return randomTierExcept(old)
+  }
+  return t
 }
 
 function randomEffect(exclude = []) {
@@ -731,9 +743,9 @@ function startWash(gi, type) {
     for (let si = 0; si < 3; si++) {
       if (gear.locks[si]) continue
       if (newSlots[si].effect !== 'wd') {
-        // 国际服版：不会获得与改造前相同的阶数
+        // 国际服版：抽到与原数值相同则重抽一次（不再抽到原数值）
         newSlots[si].tier = isGlobalRule.value
-          ? randomTierExcept(gear.slots[si].tier)
+          ? randomTierAvoidSame(gear.slots[si].tier)
           : randomTier()
       }
     }
@@ -748,20 +760,20 @@ function startWash(gi, type) {
       // 先判定本栏是否获得词条（与规则版本无关）
       if (Math.random() < SLOT_GET[si]) {
         const prev = gear.slots[si]
-        // 国际服版：本栏原本有词条时，本次不会重复获得该词条。
-        // 注意：其它未锁定栏位的旧词条不参与互斥（它们同样会被重抽），
-        // 只排除“锁定栏位词条 + 本次已分配给前面栏位的新词条 + 本栏原词条”。
-        const exclude = (isGlobalRule.value && prev.effect !== 'wd')
-          ? [...keptEffects, prev.effect]
-          : keptEffects
-        const effect = randomEffect(exclude)
+        // 本次已分配的新词条与锁定栏位的词条不重复；
+        // 本栏原有的词条仍可再被抽到（国际服版新规则，国服版同样如此）。
+        const effect = randomEffect(keptEffects)
         let tier
         if (emptyGear) {
           // 空装备首次改造：本次获得的全部词条阶数固定为 11
           tier = 11
         } else if (isGlobalRule.value && prev.effect !== 'wd') {
-          // 国际服版：本栏原本有词条时，不会获得与该栏相同的阶数
-          tier = randomTierExcept(prev.tier)
+          // 国际服版新规则：只有效果与数值都与改造前完全相同时，
+          // 才重抽一次数值（且保证不会再抽到原数值）
+          const t = randomTier()
+          tier = effect === prev.effect && t === prev.tier
+            ? randomTierExcept(prev.tier)
+            : t
         } else {
           tier = randomTier()
         }

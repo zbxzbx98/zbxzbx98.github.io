@@ -934,7 +934,7 @@ function solveCharacter(currentStr, targetStr, options = {}) {
         // 洗练规则版本透传（'cn' 国服版 / 'global' 国际服版）
         ruleVersion: options.ruleVersion === 'global' ? 'global' : 'cn',
         // 角色版分解会调用很多次单装备求解：不细分阶数档位以控制耗时
-        // （国际服版的“不会获得原阶数”仍按条件分布平均生效）
+        // （国际服版“结果完全相同才重抽数值”的阶数排除仍按条件分布平均生效）
         bandTier: false,
       });
       gearCostCache.set(key, r);

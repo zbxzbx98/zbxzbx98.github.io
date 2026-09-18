@@ -658,7 +658,7 @@ const ruleVersion = ref('cn')
 
 const ruleVersionHint = computed(() => (
   ruleVersion.value === 'global'
-    ? '国际服：改造不会获得该栏原有词条与原数值'
+    ? '国际服：改造结果与该栏原结果完全相同时，重抽一次数值（不会再抽到原数值）'
     : '国服：改造可能获得与该栏相同的词条/数值'
 ))
 
