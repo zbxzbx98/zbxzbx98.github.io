@@ -447,11 +447,15 @@ function solve(currentStr, targetStr, options = {}) {
    * 'cn'（默认，国服版）：
    *   xg 可以重复获得本栏原词条；阶数可以重复抽到原阶数。
    *
-   * 'global'（国际服版）：
-   *   ① xg 时本栏不会重复获得改造前的原词条
-   *      （先判定是否获得词条，再在“排除本栏原词条”的词条池里抽取）；
-   *   ② xg / sz 后本栏不会获得与改造前相同的阶数
-   *      （在剩余阶数上按 TIER_P 归一化后抽取）。
+   * 'global'（国际服版，新规则）：
+   *   本栏原词条仍然可能被再抽到；只有“变更后的效果与数值都与变更前
+   *   完全相同”时，才会重抽一次该栏数值（且保证不会再抽到原数值）：
+   *   ① xg：抽到别的词条/别的成员时，阶数完全自由（边缘分布）；
+   *      只有抽回“本栏原词条本人”时才可能出现完全相同的效果+数值；
+   *   ② sz：效果必然不变，所以抽到原阶数就重抽一次且不再抽到原阶数。
+   *
+   *   等价地：sz（以及 xg 抽回原词条本人）时，新阶数在“排除原阶数”的
+   *   条件下按 TIER_P 归一化抽取；xg 抽到别的词条时阶数不受限制。
    *
    * 国服版路径与改动前完全一致：band 维度恒为 0，阶数结果只有
    * “达标 / 未达标”两种，缓存键也与原来相同。
@@ -1323,7 +1327,7 @@ function solve(currentStr, targetStr, options = {}) {
             );
 
             /**
-             * 国际服版：未达标且阶数 >= 11 时记入高档，供“不会获得原阶数”使用。
+             * 国际服版：未达标且阶数 >= 11 时记入高档，供“排除原阶数”使用。
              */
             bands.push(
               (bandTierMode && !good && tier >= 11)
@@ -1501,8 +1505,8 @@ function solve(currentStr, targetStr, options = {}) {
      *
      * 例外：
      * ① 空装备第一次变更效果必定获得 11 阶词条；
-     * ② 国际服版下每栏还会排除自己的原词条（xg 后不会获得相同词条），
-     *    分布与未锁定栏位的原内容有关，缓存键要带上完整状态。
+     * ② 国际服版下“抽回本栏原词条”时阶数要排除原阶数，
+     *    分布与未锁定栏位的原内容（含阶数档位）有关，缓存键要带上完整状态。
      */
     const blank =
       isBlankSlots(slots);
@@ -1558,8 +1562,12 @@ function solve(currentStr, targetStr, options = {}) {
     const out =
       [0, 0, 0];
 
+    /**
+     * 被保护（锁定）的栏位保持原内容，阶数档位也一并保持，
+     * 否则“锁住一个未达标栏位再洗”会把它误当成低档。
+     */
     const outBands =
-      [0, 0, 0];
+      bands.slice();
 
 
     /**
@@ -1762,40 +1770,48 @@ function solve(currentStr, targetStr, options = {}) {
 
 
       /**
-       * 国际服版：本栏改造前的原词条在本次抽取中不可再获得。
+       * 国际服版（新规则）：本栏原词条**仍然可以**再被抽到。
        *
-       * 注意只对本栏的抽取生效：本栏被重抽后原词条即被释放，
-       * 后面的栏位仍然可以抽到它（未锁定栏位的旧词条不参与互斥）。
+       * 只有“变更后的效果与数值都与变更前完全相同”时，
+       * 才会重抽一次该栏数值（且保证不会再抽到原数值）。
+       * 所以这里不做任何排除，只在“抽回原词条本人”的那一小部分
+       * 使用“排除原阶数”的阶数分布（见下面 ownJ / ownP10）。
        */
-      let ownKind = 0;   // 0 无；1 十%组；2 十二%组；3 目标(十%)；4 目标(十二%)
+      const drawTotal =
+        total;
+
+
+      /**
+       * 本栏原词条（目标词条）的信息。
+       *
+       * ownJ    = 原词条所属目标（-1 表示空栏 / 非目标词条）
+       * ownP10  = 原词条属于“10% 权重组”的概率
+       *           （单成员目标可精确判断，合并目标沿用“同类成员概率相等”）
+       *
+       * 非目标词条的阶数不进入状态，重抽与否都不影响结果，无需处理。
+       */
       let ownJ = -1;
 
-      if (globalRules) {
+      let ownP10 = 0;
 
-        const c0 =
-          slots[pos];
+      if (
+        globalRules &&
+        isTargetCode(slots[pos])
+      ) {
 
-        if (c0 === O10) ownKind = 1;
-        else if (c0 === O12) ownKind = 2;
-        else if (isTargetCode(c0)) {
+        ownJ =
+          targetOfCode(slots[pos]);
 
-          ownJ = targetOfCode(c0);
 
-          if (rem10[ownJ] > 0) ownKind = 3;
-          else if (rem12[ownJ] > 0) ownKind = 4;
+        const info =
+          targets[ownJ];
 
-        }
+
+        ownP10 =
+          info.members10 * 0.10 /
+          info.weight;
 
       }
-
-
-      const drawTotal =
-        total -
-        (
-          ownKind === 0
-            ? 0
-            : (ownKind === 1 || ownKind === 3 ? 0.10 : 0.12)
-        );
 
 
       /**
@@ -1862,12 +1878,22 @@ function solve(currentStr, targetStr, options = {}) {
          * 本次抽到目标 j 的成员后的阶数结果分布。
          *
          * 国服版：达标 / 未达标两种（阶数不参与状态）。
-         * 国际服版：按“不会获得原阶数”归一化后的 (达标?, 阶数档位) 分布；
+         * 国际服版新规则：
+         *   抽到别的词条/别的成员时，阶数完全自由（边缘分布）；
+         *   只有抽回“本栏原词条本人”时，才可能出现“效果与数值都相同”，
+         *   此时阶数会重抽且不再抽到原阶数，用“排除原阶数”的条件分布。
          *   空装备第一次变更效果时，本次词条阶数固定为 11。
          */
-        const outcomes =
+        const outcomesOther =
           blank
             ? [blankTierOutcome(j)]
+            : tierOutcomes(j, null);
+
+
+        const outcomesSame =
+          blank ||
+          j !== ownJ
+            ? null
             : tierOutcomes(
                 j,
                 oldTierSetAt(slots, bands, pos)
@@ -1875,113 +1901,116 @@ function solve(currentStr, targetStr, options = {}) {
 
 
         /**
-         * 本栏原词条在本次抽取中不可再获得（国际服版）。
+         * 抽到目标 j 的一个成员（按权重类别 10% / 12%）。
+         *
+         * 同一类别内“同类成员概率相等”，
+         * 所以其中恰好是本栏原词条本人的比例为 ownP10/avail（12% 组同理）。
          */
-        const avail10 =
-          rem10[j] -
-          (ownKind === 3 && ownJ === j ? 1 : 0);
+        const drawMember = (
+          cls,
+          avail
+        ) => {
 
-        const avail12 =
-          rem12[j] -
-          (ownKind === 4 && ownJ === j ? 1 : 0);
-
-
-        /**
-         * 抽到目标 j 的一个 10% 权重成员。
-         */
-        if (
-          avail10 > 0
-        ) {
-
-          const pe =
-            acq *
-            avail10 *
-            0.10 /
-            drawTotal;
-
-
-          rem10[j]--;
-
-
-          for (const oc of outcomes) {
-
-            if (oc.p <= 0) continue;
-
-            out[pos] =
-              codeTarget(
-                j,
-                oc.good
-              );
-
-            outBands[pos] = oc.band;
-
-
-            rec(
-              pos + 1,
-
-              prob *
-                pe *
-                oc.p,
-
-              rr10,
-              rr12
-            );
-
+          if (
+            avail <= 0
+          ) {
+            return;
           }
 
 
-          rem10[j]++;
-
-        }
-
-
-        /**
-         * 抽到目标 j 的一个 12% 权重成员。
-         */
-        if (
-          avail12 > 0
-        ) {
-
           const pe =
             acq *
-            avail12 *
-            0.12 /
+            avail *
+            (cls === 1 ? 0.10 : 0.12) /
             drawTotal;
 
 
-          rem12[j]--;
+          const sameFrac =
+            !outcomesSame
+              ? 0
+              : (
+                  cls === 1
+                    ? ownP10 / avail
+                    : (1 - ownP10) / avail
+                );
 
 
-          for (const oc of outcomes) {
-
-            if (oc.p <= 0) continue;
-
-            out[pos] =
-              codeTarget(
-                j,
-                oc.good
-              );
-
-            outBands[pos] = oc.band;
-
-
-            rec(
-              pos + 1,
-
-              prob *
-                pe *
-                oc.p,
-
-              rr10,
-              rr12
-            );
-
+          if (cls === 1) {
+            rem10[j]--;
+          }
+          else {
+            rem12[j]--;
           }
 
 
-          rem12[j]++;
+          const emit = (
+            list,
+            w
+          ) => {
 
-        }
+            if (
+              w <= 0
+            ) {
+              return;
+            }
+
+
+            for (const oc of list) {
+
+              if (oc.p <= 0) continue;
+
+
+              out[pos] =
+                codeTarget(
+                  j,
+                  oc.good
+                );
+
+              outBands[pos] = oc.band;
+
+
+              rec(
+                pos + 1,
+                prob * pe * w * oc.p,
+                rr10,
+                rr12
+              );
+
+            }
+
+          };
+
+
+          emit(
+            outcomesOther,
+            1 - sameFrac
+          );
+
+          emit(
+            outcomesSame || [],
+            sameFrac
+          );
+
+
+          if (cls === 1) {
+            rem10[j]++;
+          }
+          else {
+            rem12[j]++;
+          }
+
+        };
+
+
+        drawMember(
+          1,
+          rem10[j]
+        );
+
+        drawMember(
+          2,
+          rem12[j]
+        );
 
       }
 
@@ -1990,20 +2019,13 @@ function solve(currentStr, targetStr, options = {}) {
        * 抽到10%组非目标词条
        * ------------------------------------------------------ */
 
-      const availR10 =
-        rr10 - (ownKind === 1 ? 1 : 0);
-
-      const availR12 =
-        rr12 - (ownKind === 2 ? 1 : 0);
-
-
       if (
-        availR10 > 0
+        rr10 > 0
       ) {
 
         const pe =
           acq *
-          (availR10 * 0.10) /
+          (rr10 * 0.10) /
           drawTotal;
 
 
@@ -2028,12 +2050,12 @@ function solve(currentStr, targetStr, options = {}) {
        * ------------------------------------------------------ */
 
       if (
-        availR12 > 0
+        rr12 > 0
       ) {
 
         const pe =
           acq *
-          (availR12 * 0.12) /
+          (rr12 * 0.12) /
           drawTotal;
 
 
@@ -2209,7 +2231,8 @@ function solve(currentStr, targetStr, options = {}) {
        * 变更数值：只重抽阶数。
        *
        * 国服版：达标 / 未达标两种结果。
-       * 国际服版：不会获得原阶数，按 (达标?, 阶数档位) 分布。
+       * 国际服版：效果必然不变，所以抽到原阶数就会重抽一次，
+       *   等价于“排除原阶数”，按 (达标?, 阶数档位) 分布。
        */
       const outcomes =
         tierOutcomes(
@@ -2924,6 +2947,163 @@ function solve(currentStr, targetStr, options = {}) {
         : null;
 
 
+    /**
+     * 秘钥阈值过滤结果缓存：
+     *
+     * sid -> 每个动作是否允许使用秘钥。
+     * 只依赖固定的 refVs，与迭代无关，算一次即可。
+     */
+    const keyFilterCache =
+      new Map();
+
+
+    /**
+     * 秘钥阈值过滤：该状态下每个动作是否允许使用秘钥。
+     *
+     * 只依赖固定的 refVs（全石头价值函数）与动作本身的转移分布，
+     * 与当前迭代无关，所以算一次即可（否则每轮迭代都要重扫全部转移）。
+     */
+    function keyAllowed(sid) {
+
+      let ok =
+        keyFilterCache.get(sid);
+
+
+      if (ok !== undefined) {
+
+        return ok;
+
+      }
+
+
+      const tol =
+        tieEps *
+        Math.max(
+          1,
+          Math.abs(refVs[sid])
+        );
+
+
+      ok =
+        getActions(sid, 'key')
+          .map(
+            a => {
+
+              if (a.key <= 0) return true;
+
+
+              let pImp = 0;
+
+
+              for (const tr of a.trans) {
+
+                if (
+                  tr.id !== sid &&
+                  refVs[tr.id] <
+                    refVs[sid] -
+                    tol
+                ) {
+
+                  pImp += tr.p;
+
+                }
+
+              }
+
+
+              return pImp > keyP;
+
+            }
+          );
+
+
+      keyFilterCache.set(sid, ok);
+
+
+      return ok;
+
+    }
+
+
+    /**
+     * 若没有任何状态允许使用秘钥，那么“允许秘钥”的最优策略
+     * 就是全石头策略（秘钥次数为 0），直接返回石头结果即可，
+     * 省掉一整轮秘钥价值迭代。
+     */
+    if (lex && refVs) {
+
+      let anyKey =
+        false;
+
+
+      for (
+        let sid = 0;
+        sid < states.length && !anyKey;
+        sid++
+      ) {
+
+        if (states[sid].goal) continue;
+
+
+        const ok =
+          keyAllowed(sid);
+
+        const acts =
+          getActions(sid, 'key');
+
+
+        for (
+          let ai = 0;
+          ai < acts.length;
+          ai++
+        ) {
+
+          if (
+            acts[ai].key > 0 &&
+            ok[ai]
+          ) {
+
+            anyKey = true;
+
+            break;
+
+          }
+
+        }
+
+      }
+
+
+      if (!anyKey) {
+
+        vs.set(refVs);
+
+
+        return {
+
+          stone:
+            vs[startId],
+
+          keys:
+            0,
+
+          action:
+            bestAction(startId),
+
+          iterations:
+            0,
+
+          vs,
+
+          vk,
+
+        };
+
+      }
+
+    }
+
+
     let converged =
       false;
 
@@ -2983,66 +3163,42 @@ function solve(currentStr, targetStr, options = {}) {
 
         /**
          * 枚举所有合法动作。
+         *
+         * 秘钥阈值过滤（“本次洗练有超过 p 的概率到达更优状态”）
+         * 只与固定的参照价值函数 refVs 有关，与当前迭代无关，
+         * 所以每个状态只算一次并缓存，避免每轮迭代重复扫描全部转移。
          */
-        for (
-          const a of
+        const acts =
           getActions(
             sid,
             mode
-          )
+          );
+
+
+        const keyOk =
+          lex && refVs
+            ? keyAllowed(sid)
+            : null;
+
+
+        for (
+          let ai = 0;
+          ai < acts.length;
+          ai++
         ) {
 
-          /**
-           * 秘钥阈值过滤：
-           *
-           * 秘钥模式下，仅当本次洗练有超过 p 的概率
-           * 到达更优状态的动作才允许使用秘钥；
-           * 否则该动作不可用（直接用石头洗练）。
-           */
           if (
-            lex &&
-            a.key > 0 &&
-            refVs
+            keyOk &&
+            !keyOk[ai]
           ) {
 
-            const tol =
-              tieEps *
-              Math.max(
-                1,
-                Math.abs(
-                  refVs[sid]
-                )
-              );
-
-            let pImp = 0;
-
-            for (
-              const tr of a.trans
-            ) {
-
-              if (
-                tr.id !== sid &&
-                refVs[tr.id] <
-                  refVs[sid] -
-                  tol
-              ) {
-
-                pImp +=
-                  tr.p;
-
-              }
-
-            }
-
-            if (
-              pImp <= keyP
-            ) {
-
-              continue;
-
-            }
+            continue;
 
           }
+
+
+          const a =
+            acts[ai];
 
 
           let pSelf = 0;
