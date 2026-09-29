@@ -945,9 +945,9 @@ async function loadData() {
     if (Array.isArray(stagesJson)) stagesPower.value = stagesJson
 
     // 设置默认值
-    const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('38-37'))
+    const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('40-36'))
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
-    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('38-37'))
+    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('40-36'))
     if (easyBaseEntry) {
       // 对于级联选择器，我们需要设置完整的路径
       selectedEasyMode.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
