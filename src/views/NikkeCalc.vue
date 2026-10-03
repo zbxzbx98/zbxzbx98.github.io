@@ -98,20 +98,13 @@
                 <el-input-number v-model="currentPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 180px;" />
               </div>
               <template v-if="stagesPowerFlat.length">
-                <template v-if="currentHardStage">
-                  <template v-if="nextStageInfo">
-                    <div class="pressure-panel-field">
-                      <span class="pressure-panel-label">下一关：</span>
-                      <span class="pressure-next-name">{{ nextStageInfo.name }}</span>
-                      <span class="pressure-next-power">{{ fmtPower(nextStageInfo.power) }}</span>
-                    </div>
-                    <div class="pressure-panel-field">
-                      <span class="pressure-panel-label">当前战压：</span>
-                      <span class="pressure-inline">
-                        <template v-if="nextStagePressure && nextStagePressure.factor === 1">无战压</template>
-                        <template v-else-if="nextStagePressure">战压 {{ fmtPercent(nextStagePressure.ratio) }}，属性保留 {{ fmtPercent(nextStagePressure.factor) }}</template>
-                        <template v-else>-</template>
-                      </span>
+                <template v-if="selectedHardStage">
+                  <template v-if="nextStageList.length">
+                    <div class="pressure-panel-field" v-for="(ns, i) in nextStageList" :key="i">
+                      <span class="pressure-panel-label">{{ nextStageList.length > 1 ? `下一关${i + 1}：` : '下一关：' }}</span>
+                      <span class="pressure-next-name">{{ ns.name }}</span>
+                      <span class="pressure-next-power">{{ fmtPower(ns.power) }}</span>
+                      <span class="pressure-inline">{{ stagePressureText(ns) }}</span>
                     </div>
                   </template>
                   <div v-else class="pressure-panel-field">
@@ -398,8 +391,13 @@ const stagesPowerFlat = computed(() => {
   const flat = []
   stagesPower.value.forEach((chapter, ci) => {
     chapter.forEach(stage => {
+      const fk = fullStageKey(stage.name)
+      const m = fk.match(/^(\d+-\d+)([A-Z])-(\d+)$/)
       flat.push({
-        key: normalizeStageKey(stage.name),
+        key: normalizeStageKey(stage.name),   // 基础关：38-29
+        fullKey: fk,                          // 精确关：38-29B-1
+        branch: m ? m[2] : '',                // A / B / ''
+        sub: m ? parseInt(m[3], 10) : 0,
         name: stage.name,
         power: stage.power,
         type: stage.type,
@@ -416,80 +414,124 @@ const hardStageCascaderOptions = computed(() =>
     id: 'ch' + ci,
     label: `第${ci}章`,
     children: chapter.map(stage => ({
-      id: normalizeStageKey(stage.name),
+      id: fullStageKey(stage.name),   // 用精确关（含 A/B 后缀）保证唯一
       label: stage.name,
       power: stage.power,
     })),
   }))
 )
 
-// 由关卡 key 反查级联路径，如 'ch3' + '3-1'
-function cascaderPathFor(key) {
-  const s = stagesPowerFlat.value.find(x => x.key === key)
-  return s ? ['ch' + s.chapter, key] : []
+// 由精确关反查级联路径，如 'ch38' + '38-29B-1'
+function cascaderPathFor(fullKey) {
+  const s = stagesPowerFlat.value.find(x => x.fullKey === fullKey)
+  return s ? ['ch' + s.chapter, s.fullKey] : []
 }
 
-// "0-3 HARD BOSS" / "0-3 BOSS" -> "0-3"
+// 精确关代号：'38-29B-1 HARD STAGE' -> '38-29B-1'；'0-3 BOSS' -> '0-3'
+function fullStageKey(section) {
+  const m = String(section || '').match(/^(\d+-\d+(?:[A-Z]-\d+)?)/)
+  return m ? m[1] : String(section || '').trim()
+}
+
+// "0-3 HARD BOSS" / "0-3 BOSS" -> "0-3"（基础关，忽略 A/B 后缀）
 function normalizeStageKey(section) {
   const m = String(section || '').match(/^(\d+)-(\d+)/)
   return m ? `${m[1]}-${m[2]}` : String(section || '').trim()
 }
 
-// 当前选择的困难关卡 Section（兼容数组/字符串两种形式）
-function getSelectedHardSection() {
-  let v = selectedHardMode.value
-  if (Array.isArray(v)) v = v[v.length - 1] || ''
-  const id = String(v)
-  const ch = chaptersData.value.find(c => String(c.id) === id)
-  return ch ? ch.section : ''
-}
-
-// 当前选择的普通（简单）关卡 Section（兼容数组/字符串两种形式）
-function getSelectedEasySection() {
-  let v = selectedEasyMode.value
-  if (Array.isArray(v)) v = v[v.length - 1] || ''
-  const id = String(v)
-  const ch = chaptersData.value.find(c => String(c.id) === id)
-  return ch ? ch.section : ''
-}
-
-// 当前选择的困难关卡（在 stages-power 中的位置）
-const currentHardStage = computed(() => {
+// 取某个下拉选择对应的精确关下标（兼容数组/字符串两种形式）
+function selectedStageIndex(modeRef) {
   const flat = stagesPowerFlat.value
-  if (!flat.length) return null
-  const curKey = normalizeStageKey(getSelectedHardSection())
-  const idx = flat.findIndex(s => s.key === curKey)
-  return idx === -1 ? null : { ...flat[idx], idx }
+  if (!flat.length) return -1
+  let v = modeRef.value
+  if (Array.isArray(v)) v = v[v.length - 1] || ''
+  const ch = chaptersData.value.find(c => String(c.id) === String(v))
+  if (!ch) return -1
+  const fk = fullStageKey(ch.section)
+  return flat.findIndex(s => s.fullKey === fk)
+}
+
+// 某个下标所在的“关卡组”范围（同一基础关、含 A/B 子关卡，连续排列）
+function groupRangeAt(flat, idx) {
+  if (idx < 0 || idx >= flat.length) return null
+  const base = flat[idx].key
+  let start = idx
+  while (start > 0 && flat[start - 1].key === base) start--
+  let end = idx
+  while (end < flat.length - 1 && flat[end + 1].key === base) end++
+  return { start, end, base }
+}
+
+// 当前选择的困难关卡精确下标
+const selectedHardIndex = computed(() => selectedStageIndex(selectedHardMode))
+
+// 当前选择的困难关卡（用于判断是否找到数据）
+const selectedHardStage = computed(() => {
+  const idx = selectedHardIndex.value
+  return idx === -1 ? null : { ...stagesPowerFlat.value[idx], idx }
 })
 
-// 下一关（当前困难关卡的下一关）
-const nextStageInfo = computed(() => {
-  const cur = currentHardStage.value
-  if (!cur) return null
-  const next = stagesPowerFlat.value[cur.idx + 1]
-  return next ? { ...next, currentKey: cur.key } : null
+/**
+ * 下一关列表（按游戏并联语义处理 A/B 组）：
+ *   n -> (nA-1 -> nA-2) | (nB-1 -> nB-2) -> n+1
+ * - 选中的是无后缀前置关：显示每个分支的第一个子关卡（如 A-1、B-1）
+ * - 选中的是带后缀且非该组最后一关：显示整组全部子关卡
+ * - 选中的是该组最后一关（如 B-2）：只显示 n+1
+ * - 不在多子关卡组内：直接显示下一关
+ */
+const nextStageList = computed(() => {
+  const flat = stagesPowerFlat.value
+  const idx = selectedHardIndex.value
+  if (!flat.length || idx === -1) return []
+  const g = groupRangeAt(flat, idx)
+  const inGroup = g && g.end > g.start
+  if (!inGroup) {
+    const next = flat[idx + 1]
+    return next ? [next] : []
+  }
+  if (idx === g.end) {
+    const next = flat[g.end + 1]
+    return next ? [next] : []
+  }
+  const groupStages = flat.slice(g.start, g.end + 1)
+  if (!flat[idx].branch) {
+    // 无后缀前置关：每个分支的第一个子关卡
+    const firsts = []
+    const seen = new Set()
+    for (const s of groupStages) {
+      if (s.branch && !seen.has(s.branch)) {
+        seen.add(s.branch)
+        firsts.push(s)
+      }
+    }
+    return firsts
+  }
+  // 带后缀且非终点：整组全部子关卡
+  return groupStages.filter(s => s.branch)
 })
 
-// 当前战力 vs 下一关战力的战压结果
-const nextStagePressure = computed(() => {
-  const next = nextStageInfo.value
-  if (!next) return null
-  return calcPressure(Number(currentPower.value) || 0, next.power)
-})
+// 某一关相对当前战力的战压文案（不做属性衰减）
+function stagePressureText(s) {
+  const cur = Number(currentPower.value) || 0
+  if (!s || !s.power) return '-'
+  const r = calcPressure(cur, s.power)
+  if (!r) return '-'
+  if (r.factor === 1) return '无战压'
+  return `战压 ${fmtPercent(r.ratio)}，属性保留 ${fmtPercent(r.factor)}`
+}
 
 function openPressureDialog() {
-  // 自动填入下一关战力为目标战力
-  const next = nextStageInfo.value
+  // 自动填入第一个下一关战力为目标战力
+  const next = nextStageList.value[0]
   targetPower.value = next ? next.power : 0
-  selectedHardStageCascader.value = next ? cascaderPathFor(next.key) : []
+  selectedHardStageCascader.value = next ? cascaderPathFor(next.fullKey) : []
   pressureDialogVisible.value = true
 }
 
 // 级联选择困难关卡 -> 读取其战力为目标战力
 function handleStageCascaderChange(value) {
   if (value && value.length === 2) {
-    const group = hardStageCascaderOptions.value.find(g => g.id === value[0])
-    const stage = group && group.children.find(c => c.id === value[1])
+    const stage = stagesPowerFlat.value.find(s => s.fullKey === value[1])
     if (stage) targetPower.value = stage.power
   }
 }
@@ -503,23 +545,34 @@ function fmtPercent(v) {
   return s + '%'
 }
 
+// 关卡列表终点：普通关卡所在组的最后一关下标
+function selectedEasyLastIndex() {
+  const flat = stagesPowerFlat.value
+  const idx = selectedStageIndex(selectedEasyMode)
+  if (idx === -1) return -1
+  const g = groupRangeAt(flat, idx)
+  return g ? g.end : idx
+}
+
 // 关卡列表：当前困难关卡之后、普通关卡之前的困难关卡（未通关部分）
 const stageListData = computed(() => {
   const flat = stagesPowerFlat.value
   if (!flat.length) return []
-  const hardKey = normalizeStageKey(getSelectedHardSection())
-  const easyKey = normalizeStageKey(getSelectedEasySection())
-  // 同一关卡可能有多个子关卡（如 6-6A-1 / 6-6A-2），取该关最后一段为“已通关”终点
-  let hardLast = -1
-  let easyLast = -1
-  for (let i = 0; i < flat.length; i++) {
-    if (flat[i].key === hardKey) hardLast = i
-    if (flat[i].key === easyKey) easyLast = i
+  const hardIdx = selectedHardIndex.value
+  const easyLast = selectedEasyLastIndex()
+  if (hardIdx === -1 || easyLast === -1) return []
+  // 起点：组内非终点时从该组第一个子关卡开始（保留并联关卡），否则从下一关开始
+  const g = groupRangeAt(flat, hardIdx)
+  let start
+  if (g && g.end > g.start && hardIdx !== g.end) {
+    start = flat[g.start].branch ? g.start : g.start + 1
+  } else {
+    start = hardIdx + 1
   }
-  if (hardLast === -1 || easyLast === -1 || hardLast >= easyLast) return []
+  if (start > easyLast) return []
   const cur = Number(currentPower.value) || 0
   const list = []
-  for (let i = hardLast + 1; i <= easyLast; i++) {
+  for (let i = start; i <= easyLast; i++) {
     const s = flat[i]
     const pressure = s.power > 0 ? ((s.power - cur) / s.power) : 0
     list.push({
