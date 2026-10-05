@@ -252,12 +252,19 @@
           <el-input-number v-model="targetPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 200px;" />
         </div>
         <div class="pressure-row">
+          <span class="pressure-label">数据来源：</span>
+          <el-radio-group v-model="stageSource" @change="handleStageSourceChange">
+            <el-radio-button value="story">主线关卡</el-radio-button>
+            <el-radio-button value="tower">无尽塔</el-radio-button>
+          </el-radio-group>
+        </div>
+        <div class="pressure-row">
           <span class="pressure-label">选择关卡：</span>
           <el-cascader
             v-model="selectedHardStageCascader"
-            :options="hardStageCascaderOptions"
+            :options="stageCascaderOptions"
             :props="cascaderProps"
-            placeholder="先选章节，再选关卡"
+            :placeholder="stageSource === 'tower' ? '先选层段，再选层数' : '先选章节，再选关卡'"
             style="width: 200px;"
             @change="handleStageCascaderChange"
             clearable
@@ -354,7 +361,12 @@ const currentPower = ref(0)
 const targetPower = ref(0)
 const selectedHardStageCascader = ref([])  // 弹窗中选择困难关卡（章节 -> 关卡）
 const stagesPower = ref([])            // stages-power.json 原始数据
+const towerPower = ref([])             // tower-general-power.json 原始数据（一维大数组）
+const stageSource = ref('story')       // 弹窗数据来源：story=主线关卡 / tower=无尽塔
 const stageListDialogVisible = ref(false)  // 关卡列表弹窗
+
+// 无尽塔每组的层数
+const TOWER_GROUP_SIZE = 40
 
 // 关卡类型 -> 中文
 const STAGE_TYPE_LABELS = {
@@ -419,6 +431,38 @@ const hardStageCascaderOptions = computed(() =>
       power: stage.power,
     })),
   }))
+)
+
+// 无尽塔层数（从名称末尾解析，形如 'GENERAL FLOOR 123'）
+function towerFloorNo(name) {
+  const m = String(name || '').match(/(\d+)\s*$/)
+  return m ? parseInt(m[1], 10) : 0
+}
+
+// 无尽塔级联选项：每 TOWER_GROUP_SIZE 层为一组
+const towerCascaderOptions = computed(() => {
+  const list = towerPower.value
+  const groups = []
+  for (let i = 0; i < list.length; i += TOWER_GROUP_SIZE) {
+    const chunk = list.slice(i, i + TOWER_GROUP_SIZE)
+    const firstNo = towerFloorNo(chunk[0].name)
+    const lastNo = towerFloorNo(chunk[chunk.length - 1].name)
+    groups.push({
+      id: 't' + (i / TOWER_GROUP_SIZE),
+      label: firstNo && lastNo ? `${firstNo}-${lastNo}层` : `第${i / TOWER_GROUP_SIZE + 1}组`,
+      children: chunk.map(stage => ({
+        id: stage.name,
+        label: stage.name,
+        power: stage.power,
+      })),
+    })
+  }
+  return groups
+})
+
+// 弹窗中实际使用的级联选项（按数据来源切换）
+const stageCascaderOptions = computed(() =>
+  stageSource.value === 'tower' ? towerCascaderOptions.value : hardStageCascaderOptions.value
 )
 
 // 由精确关反查级联路径，如 'ch38' + '38-29B-1'
@@ -521,16 +565,26 @@ function stagePressureText(s) {
 }
 
 function openPressureDialog() {
-  // 自动填入第一个下一关战力为目标战力
+  // 自动填入第一个下一关战力为目标战力（主线关卡）
   const next = nextStageList.value[0]
   targetPower.value = next ? next.power : 0
+  stageSource.value = 'story'
   selectedHardStageCascader.value = next ? cascaderPathFor(next.fullKey) : []
   pressureDialogVisible.value = true
 }
 
-// 级联选择困难关卡 -> 读取其战力为目标战力
+// 切换数据来源（主线关卡 / 无尽塔）时清空已选关卡
+function handleStageSourceChange() {
+  selectedHardStageCascader.value = []
+}
+
+// 级联选择关卡 -> 读取其战力为目标战力（按当前数据来源查找）
 function handleStageCascaderChange(value) {
-  if (value && value.length === 2) {
+  if (!value || value.length !== 2) return
+  if (stageSource.value === 'tower') {
+    const stage = towerPower.value.find(s => s.name === value[1])
+    if (stage) targetPower.value = stage.power
+  } else {
     const stage = stagesPowerFlat.value.find(s => s.fullKey === value[1])
     if (stage) targetPower.value = stage.power
   }
@@ -996,6 +1050,11 @@ async function loadData() {
     const stagesResponse = await fetch('/json/stages-power.json')
     const stagesJson = await stagesResponse.json()
     if (Array.isArray(stagesJson)) stagesPower.value = stagesJson
+
+    // 加载无尽塔战力数据（一维数组）
+    const towerResponse = await fetch('/json/tower-general-power.json')
+    const towerJson = await towerResponse.json()
+    if (Array.isArray(towerJson)) towerPower.value = towerJson
 
     // 设置默认值
     const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('40-36'))
