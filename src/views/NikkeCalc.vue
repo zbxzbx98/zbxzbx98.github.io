@@ -242,7 +242,7 @@
       </div>
 
       <!-- ==================== 战压计算弹窗 ==================== -->
-      <el-dialog v-model="pressureDialogVisible" title="战压计算" width="min(420px, 92vw)">
+      <el-dialog v-model="pressureDialogVisible" title="战压计算" width="min(460px, 94vw)">
         <div class="pressure-row">
           <span class="pressure-label">当前战力：</span>
           <el-input-number v-model="currentPower" :min="0" :step="1000" :precision="0" controls-position="right" style="width: 200px;" />
@@ -265,7 +265,7 @@
             :options="stageCascaderOptions"
             :props="cascaderProps"
             :placeholder="stageSource === 'tower' ? '先选层段，再选层数' : '先选章节，再选关卡'"
-            style="width: 200px;"
+            style="width: 280px;"
             @change="handleStageCascaderChange"
             clearable
           />
@@ -452,7 +452,7 @@ const towerCascaderOptions = computed(() => {
       label: firstNo && lastNo ? `${firstNo}-${lastNo}层` : `第${i / TOWER_GROUP_SIZE + 1}组`,
       children: chunk.map(stage => ({
         id: stage.name,
-        label: stage.name,
+        label: `无限之塔${towerFloorNo(stage.name)}层`,
         power: stage.power,
       })),
     })
