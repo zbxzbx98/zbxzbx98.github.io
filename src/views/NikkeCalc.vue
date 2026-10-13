@@ -1277,7 +1277,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 20px;
   justify-content: center;
-  margin-bottom: 20px;
+  /* margin-bottom: 20px; */
 }
 
 .select-group {
