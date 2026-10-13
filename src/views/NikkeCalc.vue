@@ -45,11 +45,24 @@
                   v-model="selectedEasyMode"
                   :options="easyModeOptions"
                   :props="cascaderProps"
+                  :disabled="keepLatestChapter"
                   placeholder="请选择普通模式关卡"
                   style="width: 200px;"
                   @change="handleEasyModeChange"
                   clearable
                 ></el-cascader>
+              </div>
+              <div class="latest-chapter-row">
+                <el-checkbox v-model="keepLatestChapter" @change="handleKeepLatestChange">保持最新章节</el-checkbox>
+                <el-radio-group
+                  v-model="latestServer"
+                  size="small"
+                  :disabled="!keepLatestChapter"
+                  @change="handleLatestServerChange"
+                >
+                  <el-radio-button value="cn">国服</el-radio-button>
+                  <el-radio-button value="global">国际服</el-radio-button>
+                </el-radio-group>
               </div>
             </div>
 
@@ -167,6 +180,7 @@
                   v-model="selectedEasyModeTable"
                   :options="easyModeTableOptions"
                   :props="cascaderProps"
+                  :disabled="keepLatestChapter"
                   placeholder="请选择普通模式关卡"
                   style="width: 200px;"
                   @change="handleEasyModeTableChange"
@@ -331,11 +345,19 @@ import { QuestionFilled } from '@element-plus/icons-vue'
 import * as THREE from "three";
 import NET from "vanta/src/vanta.net";
 
+/**
+ * 国服「普通模式」最新进度关卡（章节前缀，如 '40-36'）。
+ * ★ 每次国服更新章节后，只需要修改这一处。
+ */
+const CN_LATEST_EASY_STAGE = '40-36'
+
 // 数据引用
 const selectedCnLevelCorrection = ref(3)
 const selectedEasyMode = ref([])
 const selectedHardMode = ref([])
 const selectedEasyModeTable = ref([])
+const keepLatestChapter = ref(false)   // 保持最新章节（普通关自动跟踪最新进度）
+const latestServer = ref('cn')         // 跟踪进度：'cn' = 国服 / 'global' = 国际服
 const displayMode = ref('asc')
 const showHalfPoints = ref('true')
 const baseDefenseLevel = ref(1)
@@ -716,6 +738,8 @@ const LOCAL_KEYS = {
   hbid: 'nikke_hbid',
   cnlv: 'nikke_cnlv',
   pw: 'nikke_pw',
+  klc: 'nikke_klc',
+  lsv: 'nikke_lsv',
 }
 
 // 读取存储：优先 B站云存储，其次本地浏览器存储
@@ -750,6 +774,8 @@ async function writeSavedState() {
   if (savedHard.value.id) { state.hbn = savedHard.value.bn; state.hbid = savedHard.value.id }
   state.cnlv = String(selectedCnLevelCorrection.value)
   state.pw = String(currentPower.value || '')
+  state.klc = keepLatestChapter.value ? '1' : '0'
+  state.lsv = latestServer.value
   if (typeof window !== 'undefined' && window.toy) {
     try {
       const ok = await window.toy.isSupport('setCloudStorage')
@@ -769,6 +795,58 @@ watch(currentPower, () => {
   clearTimeout(powerSaveTimer)
   powerSaveTimer = setTimeout(() => writeSavedState(), 500)
 })
+
+/* ---------------- 保持最新章节（普通关自动跟踪最新进度） ---------------- */
+
+// 按追踪目标取「最新普通关卡进度」的章节前缀
+function latestEasyPrefix() {
+  if (latestServer.value === 'global') {
+    // 国际服：当前关卡列表最后一关
+    const last = chaptersData.value[chaptersData.value.length - 1]
+    return last ? last.section : ''
+  }
+  // 国服：手动维护的常量（CN_LATEST_EASY_STAGE）
+  return CN_LATEST_EASY_STAGE
+}
+
+// 在章节数据中按前缀查找关卡
+function findChapterByPrefix(prefix) {
+  if (!prefix) return null
+  return chaptersData.value.find(c => c.section && (c.section === prefix || c.section.startsWith(prefix))) || null
+}
+
+// 把两个「普通模式」选择器设为最新进度
+function applyLatestEasy() {
+  const entry = findChapterByPrefix(latestEasyPrefix())
+  if (!entry) return false
+  selectedEasyMode.value = [entry.chapterName, entry.id]
+  selectedEasyModeTable.value = [entry.chapterName, entry.id]
+  return true
+}
+
+// 勾选/取消「保持最新章节」
+function handleKeepLatestChange() {
+  if (keepLatestChapter.value) {
+    applyLatestEasy()
+  } else if (savedEasy.value.id) {
+    // 取消勾选：恢复之前保存的普通关进度，之后可继续手动选择
+    selectedEasyMode.value = [savedEasy.value.bn, savedEasy.value.id]
+    selectedEasyModeTable.value = [savedEasy.value.bn, savedEasy.value.id]
+  }
+  calculateBaseDefenseLevel()
+  updateTableData()
+  writeSavedState()
+}
+
+// 切换追踪服（国服 / 国际服）
+function handleLatestServerChange() {
+  if (keepLatestChapter.value) {
+    applyLatestEasy()
+    calculateBaseDefenseLevel()
+    updateTableData()
+  }
+  writeSavedState()
+}
 
 // 处理普通模式变更
 function handleEasyModeChange(value) {
@@ -1056,15 +1134,14 @@ async function loadData() {
     const towerJson = await towerResponse.json()
     if (Array.isArray(towerJson)) towerPower.value = towerJson
 
-    // 设置默认值
-    const easyBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('40-36'))
+    // 设置默认值（普通关默认 = 国服最新进度，只需维护 CN_LATEST_EASY_STAGE 一处）
+    const easyBaseEntry = findChapterByPrefix(CN_LATEST_EASY_STAGE)
     const hardBaseEntry = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('0-1'))
-    const easyBaseEntry2 = chaptersData.value.find(chapter => chapter.section && chapter.section.startsWith('40-36'))
     if (easyBaseEntry) {
       // 对于级联选择器，我们需要设置完整的路径
       selectedEasyMode.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
       // 表格用的选择器也设置同样的默认值
-      selectedEasyModeTable.value = [easyBaseEntry2.chapterName, easyBaseEntry2.id]
+      selectedEasyModeTable.value = [easyBaseEntry.chapterName, easyBaseEntry.id]
     }
 
     if (hardBaseEntry) {
@@ -1077,16 +1154,24 @@ async function loadData() {
 
     // 读取存储（B站云存储 > 本地浏览器存储），覆盖默认值
     const saved = await readSavedState()
+    // 先恢复「保持最新章节」设置，它决定普通关用最新进度还是存储进度
+    if (saved.klc != null) keepLatestChapter.value = saved.klc === '1' || saved.klc === 'true'
+    if (saved.lsv === 'cn' || saved.lsv === 'global') latestServer.value = saved.lsv
+
     let changed = false
-    if (saved.ebn && saved.ebid) {
+    if (saved.hbn && saved.hbid) {
+      // 困难关进度不受「保持最新章节」影响，始终沿用存储值
+      savedHard.value = { bn: saved.hbn, id: saved.hbid }
+      selectedHardMode.value = [saved.hbn, saved.hbid]
+      changed = true
+    }
+    if (keepLatestChapter.value) {
+      // 勾选「保持最新章节」：普通关直接使用最新进度
+      if (applyLatestEasy()) changed = true
+    } else if (saved.ebn && saved.ebid) {
       savedEasy.value = { bn: saved.ebn, id: saved.ebid }
       selectedEasyMode.value = [saved.ebn, saved.ebid]
       selectedEasyModeTable.value = [saved.ebn, saved.ebid]
-      changed = true
-    }
-    if (saved.hbn && saved.hbid) {
-      savedHard.value = { bn: saved.hbn, id: saved.hbid }
-      selectedHardMode.value = [saved.hbn, saved.hbid]
       changed = true
     }
     if (saved.cnlv != null) {
@@ -1199,6 +1284,15 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
+}
+
+.latest-chapter-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .cascader-wrapper {
