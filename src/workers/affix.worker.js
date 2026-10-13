@@ -5,10 +5,15 @@
  *
  * 加载方式说明：
  * Vite dev（rolldown）不会把 src 下的 CommonJS 源文件转换成 ESM，
- * 直接 import 会因 module/require 未定义而报错。因此这里用 fetch 获取
- * 算法源码，在函数作用域内以 module/require 垫片求值（两个算法文件只在
- * 末尾使用 module.exports，且只有 affix_solver 的 CLI 测试块用到
- * require.main），dev 与 build 下均可工作，且不改动算法文件本身。
+ * 直接 import 会因 module/require 未定义而报错。因此这里用 `?raw` 在构建期
+ * 把算法源码作为字符串内联进来，再在函数作用域内以 module/require 垫片求值
+ * （两个算法文件只在末尾使用 module.exports，且只有 affix_solver 的 CLI
+ * 测试块用到 require.main），且不改动算法文件本身。
+ *
+ * 用 `?raw` 而非运行时 fetch 的原因：
+ * 1) 内联 Worker（Blob）里没有可用的 import.meta.url，无法解析外部文件；
+ * 2) 双击打开 html（file://）时浏览器禁止 fetch 本地文件。
+ * 这样 Worker 完全自包含，构建产物不再依赖额外的算法文件。
  *
  * 消息协议（主线程 -> Worker）：
  *   { id, type: 'single' | 'character', current, target, options? }
@@ -18,33 +23,44 @@
  *   { id, ok: false, error }          计算失败
  */
 
+import solverSource from '../affix_solver.js?raw'
+import charSolverSource from '../affix_4gear_solver.js?raw'
+
+// 模块名 -> 源码（构建期内联）
+const SOURCES = {
+  'affix_solver.js': solverSource,
+  'affix_4gear_solver.js': charSolverSource,
+}
+
 let solversPromise = null
 
 const moduleCache = new Map()
 
 /**
  * 获取一段 CommonJS 源码，并在垫片作用域内求值，返回 module.exports。
+ * @param {string} name 模块文件名（如 'affix_solver.js'）
  */
-async function loadCjsModule(url) {
-  if (moduleCache.has(url)) return moduleCache.get(url)
+function loadCjsModule(name) {
+  if (moduleCache.has(name)) return moduleCache.get(name)
   const promise = (async () => {
-    const code = await (await fetch(url)).text()
+    const code = SOURCES[name]
+    if (code == null) throw new Error('未知算法模块：' + name)
     const module = { exports: {} }
-    const requireShim = (id) => loadCjsModule(new URL(id, url).href)
+    const requireShim = (id) => loadCjsModule(String(id).replace(/^\.\//, ''))
     requireShim.main = undefined
     const factory = new Function('module', 'exports', 'require', code)
     factory(module, module.exports, requireShim)
     return module.exports
   })()
-  moduleCache.set(url, promise)
+  moduleCache.set(name, promise)
   return promise
 }
 
 function ensureSolvers() {
   if (!solversPromise) {
     solversPromise = Promise.all([
-      loadCjsModule(new URL('../affix_solver.js', import.meta.url)),
-      loadCjsModule(new URL('../affix_4gear_solver.js', import.meta.url)),
+      loadCjsModule('affix_solver.js'),
+      loadCjsModule('affix_4gear_solver.js'),
     ]).then(([solverMod, charSolverMod]) => ({
       solve: solverMod.solve,
       solveCharacter: charSolverMod.solveCharacter,

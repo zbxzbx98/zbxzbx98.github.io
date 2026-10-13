@@ -563,6 +563,9 @@ import * as THREE from 'three'
 import NET from 'vanta/src/vanta.net'
 import AffixSimulator from '../components/AffixSimulator.vue'
 import { CHAR_TIER_RANGES } from '../affix_tier_ranges.js'
+// 内联 Worker（Blob）：构建产物不再依赖外部 worker / 算法文件，
+// 也避免使用 import.meta（IIFE 构建下不可用），支持双击打开 html 使用
+import AffixWorker from '../workers/affix.worker.js?worker&inline'
 
 /* ==================== 词条与数值常量（来自《代号规定和已有算法.txt》） ==================== */
 
@@ -1150,7 +1153,7 @@ function validateTargets(targets, max, maxTier) {
 
 function ensureWorker() {
   if (worker) return worker
-  worker = new Worker(new URL('../workers/affix.worker.js', import.meta.url), { type: 'module' })
+  worker = new AffixWorker()
   worker.onmessage = handleWorkerMessage
   worker.onerror = (e) => {
     stopElapsed()

@@ -288,6 +288,8 @@
 <script setup>
 import { ref, computed, onUnmounted, watch } from 'vue'
 import { CHAR_TIER_RANGES } from '../affix_tier_ranges.js'
+// 内联 Worker（Blob）：不依赖外部 worker / 算法文件，也不使用 import.meta
+import AffixWorker from '../workers/affix.worker.js?worker&inline'
 
 const emit = defineEmits(['read-aka'])
 
@@ -971,7 +973,7 @@ function buildCurrent() {
 
 function ensureWorker() {
   if (worker) return worker
-  worker = new Worker(new URL('../workers/affix.worker.js', import.meta.url), { type: 'module' })
+  worker = new AffixWorker()
   worker.onmessage = e => {
     const msg = e.data
     // 进度消息不是最终结果，忽略（角色版会先发多条进度）
