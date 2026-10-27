@@ -9,6 +9,12 @@
         <el-radio-button value="cn">国服版</el-radio-button>
         <el-radio-button value="global">国际服版</el-radio-button>
       </el-radio-group>
+      <template v-if="ruleVersion === 'global'">
+        <span class="rule-switch-label">每日拦截次数：</span>
+        <el-select v-model="intDailyRuns" size="small" style="width: 88px">
+          <el-option v-for="n in INT_DAILY_RUN_OPTIONS" :key="n" :label="n + ' 次'" :value="n" />
+        </el-select>
+      </template>
       <span class="rule-switch-hint">{{ ruleVersionHint }}</span>
     </div>
 
@@ -207,10 +213,11 @@
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row" v-if="ruleVersion === 'global'">
-                <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国际服（每日 {{ intDailyRuns }} 次：{{ intRateText.stone }} 石头/天，{{ intRateText.key }} 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
               <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
+              <p class="note" v-if="ruleVersion === 'global'">国际服每日产出 = 单次（1.4033 石头 + 6 秘钥）× 每日拦截次数；3 次即 4.21 石头 / 18 秘钥。</p>
             </div>
           </div>
         </el-tab-pane>
@@ -455,10 +462,11 @@
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.cn.key) }} ｜ 全石头 {{ fmtDays(expectedDays.cn.stone) }}</span>
               </div>
               <div class="time-row" v-if="ruleVersion === 'global'">
-                <span class="time-server">国际服（4.21 石头/天，18 秘钥/天）</span>
+                <span class="time-server">国际服（每日 {{ intDailyRuns }} 次：{{ intRateText.stone }} 石头/天，{{ intRateText.key }} 秘钥/天）</span>
                 <span class="time-val">秘钥策略 {{ fmtDays(expectedDays.int.key) }} ｜ 全石头 {{ fmtDays(expectedDays.int.stone) }}</span>
               </div>
               <p class="note">秘钥策略按两种资源同时攒、取较慢者估算；实际天数随每日掉落浮动。</p>
+              <p class="note" v-if="ruleVersion === 'global'">国际服每日产出 = 单次（1.4033 石头 + 6 秘钥）× 每日拦截次数；3 次即 4.21 石头 / 18 秘钥。</p>
             </div>
           </div>
         </el-tab-pane>
@@ -656,8 +664,11 @@ const usePrecise = ref(true)
 /* ---------- 洗练规则版本（国服版 / 国际服版）：三个 Tab 共用 ---------- */
 
 const RULE_VERSION_KEY = 'affix_rule_version'
+// 国际服每日拦截次数（3/4/5 次），只影响“期望攒资源时间”的每日产出
+const INT_DAILY_RUNS_KEY = 'affix_int_daily_runs'
 // 'cn' = 国服版（默认）；'global' = 国际服版
 const ruleVersion = ref('cn')
+const intDailyRuns = ref(3)
 
 const ruleVersionHint = computed(() => (
   ruleVersion.value === 'global'
@@ -669,20 +680,27 @@ function loadRuleVersion() {
   try {
     const raw = localStorage.getItem(RULE_VERSION_KEY)
     if (raw === 'cn' || raw === 'global') ruleVersion.value = raw
+    const runs = Number(localStorage.getItem(INT_DAILY_RUNS_KEY))
+    if (INT_DAILY_RUN_OPTIONS.includes(runs)) intDailyRuns.value = runs
   } catch (e) {
-    // 读取失败时静默保持默认（国服版）
+    // 读取失败时静默保持默认（国服版 / 3 次）
   }
 }
 
 function saveRuleVersion() {
   try {
     localStorage.setItem(RULE_VERSION_KEY, String(ruleVersion.value))
+    localStorage.setItem(INT_DAILY_RUNS_KEY, String(intDailyRuns.value))
   } catch (e) {
     // 静默失败：保持内存中的值
   }
 }
 
 watch(ruleVersion, () => {
+  saveRuleVersion()
+})
+
+watch(intDailyRuns, () => {
   saveRuleVersion()
 })
 
@@ -1488,8 +1506,28 @@ const costParts = computed(() => {
 // 每日资源产出：国服 / 国际服
 const DAILY_RATE = {
   cn: { stone: 3.3877, key: 18 },
-  int: { stone: 4.21, key: 18 },
 }
+
+// 国际服：每日拦截次数可选 3/4/5 次，单次产出为 1.4033 石头 + 6 秘钥，
+// 每日产出 = 单次产出 × 次数（3 次即原先的 4.21 石头 / 18 秘钥）。
+// 用 4.21/3 作单次基数，保证 3 次时与原默认值完全一致。
+const INT_DAILY_RUN_OPTIONS = [3, 4, 5]
+const INT_DAILY_PER_RUN = { stone: 4.21 / 3, key: 6 }
+
+const intDailyRate = computed(() => ({
+  stone: INT_DAILY_PER_RUN.stone * intDailyRuns.value,
+  key: INT_DAILY_PER_RUN.key * intDailyRuns.value,
+}))
+
+// 每日产出展示：最多 4 位小数，去掉多余的 0
+function fmtRate(v) {
+  return String(Number(v.toFixed(4)))
+}
+
+const intRateText = computed(() => ({
+  stone: fmtRate(intDailyRate.value.stone),
+  key: fmtRate(intDailyRate.value.key),
+}))
 
 const expectedDays = computed(() => {
   const r = result.value
@@ -1508,7 +1546,7 @@ const expectedDays = computed(() => {
   })
   return {
     cn: calc(DAILY_RATE.cn),
-    int: calc(DAILY_RATE.int),
+    int: calc(intDailyRate.value),
   }
 })
 
