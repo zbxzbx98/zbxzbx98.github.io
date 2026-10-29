@@ -11083,18 +11083,6 @@
             "name": "49-36 HARD BOSS",
             "power": 3814800,
             "type": "Campaign"
-        },
-        {
-            "difficulty": "Hard",
-            "name": "49-1 EX HARD STAGE",
-            "power": 0,
-            "type": "Defense"
-        },
-        {
-            "difficulty": "Hard",
-            "name": "49-2 EX HARD STAGE",
-            "power": 0,
-            "type": "Campaign"
         }
     ],
     [
@@ -11361,18 +11349,6 @@
             "name": "50-36 HARD BOSS",
             "power": 4020200,
             "type": "Campaign"
-        },
-        {
-            "difficulty": "Hard",
-            "name": "50-1 EX HARD STAGE",
-            "power": 0,
-            "type": "Campaign"
-        },
-        {
-            "difficulty": "Hard",
-            "name": "50-2 EX HARD STAGE",
-            "power": 0,
-            "type": "BaseDefense"
         }
     ]
 ]
