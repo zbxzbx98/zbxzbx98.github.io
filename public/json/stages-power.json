@@ -5754,7 +5754,7 @@
         },
         {
             "difficulty": "Hard",
-            "name": "29-34 HARD STAGE",
+            "name": "29-34 HARD BOSS",
             "power": 1132000,
             "type": "Campaign"
         }
@@ -6008,7 +6008,7 @@
         },
         {
             "difficulty": "Hard",
-            "name": "30-34 HARD STAGE",
+            "name": "30-34 HARD BOSS",
             "power": 1220800,
             "type": "Campaign"
         }
@@ -10817,6 +10817,562 @@
             "name": "48-36 HARD BOSS",
             "power": 3622200,
             "type": "Campaign"
+        }
+    ],
+    [
+        {
+            "difficulty": "Hard",
+            "name": "49-1 HARD STAGE",
+            "power": 3622200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-2 HARD STAGE",
+            "power": 3626600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-3 HARD STAGE",
+            "power": 3633100,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-4 HARD STAGE",
+            "power": 3637500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-5 HARD STAGE",
+            "power": 3641900,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-6 HARD STAGE",
+            "power": 3646300,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-7 HARD STAGE",
+            "power": 3650700,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-8 HARD STAGE",
+            "power": 3657200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-9 HARD STAGE",
+            "power": 3661600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-10 HARD STAGE",
+            "power": 3666000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-11 HARD STAGE",
+            "power": 3672500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-12 HARD STAGE",
+            "power": 3676900,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-13 HARD STAGE",
+            "power": 3681300,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-13A-1 HARD STAGE",
+            "power": 3685700,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-13A-2 HARD STAGE",
+            "power": 3690100,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-13B-1 HARD STAGE",
+            "power": 3685700,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-13B-2 HARD STAGE",
+            "power": 3690100,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-14 HARD STAGE",
+            "power": 3694500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-15 HARD STAGE",
+            "power": 3698900,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-16 HARD STAGE",
+            "power": 3705400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-17 HARD STAGE",
+            "power": 3709800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-18 HARD STAGE",
+            "power": 3714200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-19 HARD STAGE",
+            "power": 3718600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-20 HARD STAGE",
+            "power": 3723000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-21 HARD STAGE",
+            "power": 3729500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-22 HARD STAGE",
+            "power": 3733900,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-23 HARD STAGE",
+            "power": 3738300,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-24 HARD STAGE",
+            "power": 3744800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-25 HARD STAGE",
+            "power": 3749200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-26 HARD STAGE",
+            "power": 3753600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-27 HARD STAGE",
+            "power": 3758000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-28 HARD STAGE",
+            "power": 3764500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-28A-1 HARD STAGE",
+            "power": 3768900,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-28A-2 HARD STAGE",
+            "power": 3773300,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-28B-1 HARD STAGE",
+            "power": 3768900,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-28B-2 HARD STAGE",
+            "power": 3773300,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-29 HARD STAGE",
+            "power": 3777700,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-30 HARD STAGE",
+            "power": 3784200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-31 HARD STAGE",
+            "power": 3788600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-32 HARD STAGE",
+            "power": 3793000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-33 HARD STAGE",
+            "power": 3799500,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-34 HARD STAGE",
+            "power": 3803900,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-35 HARD STAGE",
+            "power": 3808300,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-36 HARD BOSS",
+            "power": 3814800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-1 EX HARD STAGE",
+            "power": 0,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "49-2 EX HARD STAGE",
+            "power": 0,
+            "type": "Campaign"
+        }
+    ],
+    [
+        {
+            "difficulty": "Hard",
+            "name": "50-1 HARD STAGE",
+            "power": 3814800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-2 HARD STAGE",
+            "power": 3819600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-3 HARD STAGE",
+            "power": 3825600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-4 HARD STAGE",
+            "power": 3830400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-5 HARD STAGE",
+            "power": 3835200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-6 HARD STAGE",
+            "power": 3841200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-7 HARD STAGE",
+            "power": 3846000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-8 HARD STAGE",
+            "power": 3850800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-9 HARD STAGE",
+            "power": 3856800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-10 HARD STAGE",
+            "power": 3861600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-11 HARD STAGE",
+            "power": 3866400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-12 HARD STAGE",
+            "power": 3872400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-13 HARD STAGE",
+            "power": 3877200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-14 HARD STAGE",
+            "power": 3882000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-15 HARD STAGE",
+            "power": 3888000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-15A-1 HARD STAGE",
+            "power": 3892800,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-15A-2 HARD STAGE",
+            "power": 3897600,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-15B-1 HARD STAGE",
+            "power": 3892800,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-15B-2 HARD STAGE",
+            "power": 3897600,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-16 HARD STAGE",
+            "power": 3902400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-17 HARD STAGE",
+            "power": 3907200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-18 HARD STAGE",
+            "power": 3913200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-19 HARD STAGE",
+            "power": 3918000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-20 HARD STAGE",
+            "power": 3922800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-21 HARD STAGE",
+            "power": 3928800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-22 HARD STAGE",
+            "power": 3933600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-23 HARD STAGE",
+            "power": 3938400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-24 HARD STAGE",
+            "power": 3944400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-25 HARD STAGE",
+            "power": 3949200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-26 HARD STAGE",
+            "power": 3954000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-27 HARD STAGE",
+            "power": 3960000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-27A-1 HARD STAGE",
+            "power": 3964800,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-27A-2 HARD STAGE",
+            "power": 3969600,
+            "type": "Defense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-27B-1 HARD STAGE",
+            "power": 3964800,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-27B-2 HARD STAGE",
+            "power": 3969600,
+            "type": "BaseDefense"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-28 HARD STAGE",
+            "power": 3974400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-29 HARD STAGE",
+            "power": 3979200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-30 HARD STAGE",
+            "power": 3985200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-31 HARD STAGE",
+            "power": 3990000,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-32 HARD STAGE",
+            "power": 3994800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-33 HARD STAGE",
+            "power": 4000800,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-34 HARD STAGE",
+            "power": 4005600,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-35 HARD STAGE",
+            "power": 4010400,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-36 HARD BOSS",
+            "power": 4020200,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-1 EX HARD STAGE",
+            "power": 0,
+            "type": "Campaign"
+        },
+        {
+            "difficulty": "Hard",
+            "name": "50-2 EX HARD STAGE",
+            "power": 0,
+            "type": "BaseDefense"
         }
     ]
 ]

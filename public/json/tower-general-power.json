@@ -7748,5 +7748,505 @@
     "name": "GENERAL FLOOR 1550",
     "power": 5265490,
     "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1551",
+    "power": 5351782,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1552",
+    "power": 5355496,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1553",
+    "power": 5359210,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1554",
+    "power": 5362924,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1555",
+    "power": 5371424,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1556",
+    "power": 5375138,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1557",
+    "power": 5378852,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1558",
+    "power": 5382566,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1559",
+    "power": 5391066,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1560",
+    "power": 5411666,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1561",
+    "power": 5415380,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1562",
+    "power": 5419094,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1563",
+    "power": 5422808,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1564",
+    "power": 5426522,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1565",
+    "power": 5435022,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1566",
+    "power": 5438736,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1567",
+    "power": 5442450,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1568",
+    "power": 5446164,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1569",
+    "power": 5454664,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1570",
+    "power": 5478814,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1571",
+    "power": 5482528,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1572",
+    "power": 5486242,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1573",
+    "power": 5489956,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1574",
+    "power": 5493670,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1575",
+    "power": 5502170,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1576",
+    "power": 5505884,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1577",
+    "power": 5509598,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1578",
+    "power": 5513312,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1579",
+    "power": 5521812,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1580",
+    "power": 5542412,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1581",
+    "power": 5546126,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1582",
+    "power": 5549840,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1583",
+    "power": 5553554,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1584",
+    "power": 5557268,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1585",
+    "power": 5565768,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1586",
+    "power": 5569482,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1587",
+    "power": 5573196,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1588",
+    "power": 5576910,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1589",
+    "power": 5585410,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1590",
+    "power": 5609560,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1591",
+    "power": 5613274,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1592",
+    "power": 5616988,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1593",
+    "power": 5620702,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1594",
+    "power": 5624416,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1595",
+    "power": 5632916,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1596",
+    "power": 5636630,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1597",
+    "power": 5640344,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1598",
+    "power": 5644058,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1599",
+    "power": 5652558,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1600",
+    "power": 5673158,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1601",
+    "power": 5676872,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1602",
+    "power": 5680586,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1603",
+    "power": 5684300,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1604",
+    "power": 5688014,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1605",
+    "power": 5696514,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1606",
+    "power": 5700228,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1607",
+    "power": 5703942,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1608",
+    "power": 5707656,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1609",
+    "power": 5716156,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1610",
+    "power": 5740306,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1611",
+    "power": 5744020,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1612",
+    "power": 5747734,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1613",
+    "power": 5751448,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1614",
+    "power": 5755162,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1615",
+    "power": 5763662,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1616",
+    "power": 5767376,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1617",
+    "power": 5771090,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1618",
+    "power": 5774804,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1619",
+    "power": 5783304,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1620",
+    "power": 5803904,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1621",
+    "power": 5807618,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1622",
+    "power": 5811332,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1623",
+    "power": 5815046,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1624",
+    "power": 5818760,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1625",
+    "power": 5827260,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1626",
+    "power": 5830974,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1627",
+    "power": 5834688,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1628",
+    "power": 5838402,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1629",
+    "power": 5846902,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1630",
+    "power": 5871052,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1631",
+    "power": 5874766,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1632",
+    "power": 5878480,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1633",
+    "power": 5882194,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1634",
+    "power": 5885908,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1635",
+    "power": 5894408,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1636",
+    "power": 5898122,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1637",
+    "power": 5901836,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1638",
+    "power": 5905550,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1639",
+    "power": 5914050,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1640",
+    "power": 5934650,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1641",
+    "power": 5938364,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1642",
+    "power": 5942078,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1643",
+    "power": 5945792,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1644",
+    "power": 5949506,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1645",
+    "power": 5958006,
+    "type": "Defense"
+  },
+  {
+    "name": "GENERAL FLOOR 1646",
+    "power": 5961720,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1647",
+    "power": 5965434,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1648",
+    "power": 5969148,
+    "type": "Campaign"
+  },
+  {
+    "name": "GENERAL FLOOR 1649",
+    "power": 5977648,
+    "type": "BaseDefense"
+  },
+  {
+    "name": "GENERAL FLOOR 1650",
+    "power": 6001798,
+    "type": "Campaign"
   }
 ]
