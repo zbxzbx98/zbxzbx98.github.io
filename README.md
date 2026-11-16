@@ -51,7 +51,7 @@ A personal toolbox built with **Vue 3 + Vite + Element Plus**, deployed on GitHu
 - [Vue 3](https://vuejs.org/) + [Vite](https://vitejs.dev/) + [Element Plus](https://element-plus.org/)
 - [vue-router](https://router.vuejs.org/)（main 用 history 模式 / toy 用 hash 模式）
 - [three.js](https://threejs.org/) + [vanta](https://www.vantajs.com/)（页面背景动效）
-- [vite-plugin-singlefile](https://github.com/richardtallent/vite-plugin-singlefile)（toy 分支打包为单 HTML）
+- 产物形态（toy 分支）：`index.html` + 外置 `index.js` / `style.css`，入口为经典脚本（IIFE）
 - Web Worker（洗练计算，避免阻塞界面）
 - B站 Toy SDK（toy 分支云存档）
 
@@ -60,10 +60,10 @@ A personal toolbox built with **Vue 3 + Vite + Element Plus**, deployed on GitHu
 | 分支 | 用途 | 路由 | 页面 | 云存档 |
 | --- | --- | --- | --- | --- |
 | `main` | GitHub Pages 部署 | history 模式 | 开始页 / 主页 / 数独 / 资源产出 / 装备洗练 | 无 |
-| `toy` | 构建 B站 Toy（单 HTML 部署） | hash 模式 | 装备洗练 / 资源产出 | 有（Toy SDK 云存储） |
+| `toy` | 构建 B站 Toy（单界面产物） | hash 模式 | 装备洗练 / 资源产出 / 阿卡网页版 | 有（Toy SDK 云存储） |
 
 - `main` 分支由 GitHub Actions（`.github/workflows/pages.yml`）自动构建并部署到 GitHub Pages，并生成 `404.html` 支持前端路由刷新；
-- `toy` 分支使用 `vite-plugin-singlefile` 把页面打包成**单个 HTML 文件**，上传到 B站 Toy 平台（`https://www.bilibili.com/toy/<slug>/index.html`）即可使用；
+- `toy` 分支三个 Toy（装备洗练 / 资源产出 / 阿卡网页版）共用同一工程，用 `npm run build:<toy>` **一次只打包一个界面**（`affix` / `nikke` / `arcana`），产物在 `dist/`，上传到 B站 Toy 平台（`https://www.bilibili.com/toy/<slug>/index.html`）即可使用；
 - 两个分支的装备计算器功能保持一致（除云存档外），请勿把 toy 的云存档相关改动与 main 搞混。
 
 ## 构建 / Build
@@ -71,8 +71,10 @@ A personal toolbox built with **Vue 3 + Vite + Element Plus**, deployed on GitHu
 ```sh
 npm install
 npm run dev      # 本地开发
-npm run build    # 生产构建（toy 分支输出单 HTML 到 dist/）
+npm run build    # 生产构建（main：全部页面 -> dist/）
 ```
+
+- `toy` 分支另有一套脚本，用 `<toy>` = `affix` / `nikke` / `arcana` 选择要打包的界面：`npm run build:affix`、`npm run dev:nikke` 等，不写时默认 `arcana`；
 
 ## 目录结构 / Structure
 
