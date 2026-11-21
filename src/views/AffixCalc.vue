@@ -856,7 +856,7 @@ const STAT_NO_TO_CODE = { 0: 'uy', 1: 'mz', 2: 'dr', 3: 'gj', 4: 'xl', 5: 'xs', 
 const CODE_TO_STAT_NO = { uy: 0, mz: 1, dr: 2, gj: 3, xl: 4, xs: 5, bj: 6, bs: 7, fy: 8 }
 const AKA_SLOT_NAMES = ['头', '衣', '手', '鞋']
 
-const AKA_API_BASE = 'https://pinkuro.top:9984/third/bot/nikke/v1'
+const AKA_API_BASE = 'https://pinkuro.top/third/bot/nikke/v1'
 const AKA_KEY_STORAGE_KEY = 'affix_aka_apikey'
 const AKA_CHARS_CN_KEY = 'affix_aka_chars_cn'
 const AKA_CHARS_INT_KEY = 'affix_aka_chars_int'
